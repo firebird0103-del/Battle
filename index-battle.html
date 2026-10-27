@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>線上象棋即時對戰 (含悔棋與雙向語音)</title>
+  <title>線上象棋即時對戰平台</title>
   <style>
     :root {
       --board-bg: #e6c280;
@@ -13,9 +13,9 @@
     }
     body {
       margin: 0;
-      padding: 15px;
+      padding: 12px;
       font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
-      background: #25282a;
+      background: #23272a;
       color: #f0f0f0;
       display: flex;
       flex-direction: column;
@@ -28,60 +28,103 @@
       gap: 8px;
       align-items: center;
       justify-content: center;
-      margin-bottom: 10px;
-      max-width: 520px;
+      margin-bottom: 8px;
+      max-width: 500px;
     }
     button, select {
-      padding: 8px 12px;
+      padding: 7px 12px;
       border: none;
       border-radius: 6px;
-      background: #3e4448;
+      background: #3a4048;
       color: #fff;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
-      transition: 0.2s;
+      transition: 0.15s;
     }
-    button:hover { background: #525a60; }
+    button:hover { background: #4e5661; }
     button.primary { background: #b86b24; font-weight: bold; }
-    button.voice-btn { background: #2e7d32; }
+    button.primary:hover { background: #d47e2c; }
+    button.voice-btn { background: #2e7d32; font-weight: bold; }
     button.voice-btn.active { background: #c62828; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
 
     .status-bar {
       font-size: 15px;
       font-weight: bold;
       color: #f5deb3;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .voice-status {
+      font-size: 12px;
+      color: #8bc34a;
+      margin-bottom: 6px;
     }
 
-    /* 悔棋請求通知橫幅 */
+    /* 吃子展示區 */
+    .graveyard {
+      width: 450px;
+      min-height: 28px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      padding: 2px 8px;
+      box-sizing: border-box;
+      gap: 4px;
+      font-size: 13px;
+      color: #aaa;
+    }
+    .graveyard-pieces {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+    }
+    .mini-piece {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: bold;
+      background: #e0cfab;
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+    }
+    .mini-piece.red { color: var(--red-piece); border: 1px solid var(--red-piece); }
+    .mini-piece.black { color: var(--black-piece); border: 1px solid var(--black-piece); }
+
+    /* 悔棋橫幅 */
     #undoBanner {
       display: none;
       background: #ff9800;
       color: #000;
-      padding: 8px 16px;
+      padding: 6px 14px;
       border-radius: 6px;
       font-weight: bold;
-      margin-bottom: 10px;
+      font-size: 14px;
+      margin-bottom: 8px;
       align-items: center;
       gap: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
     #undoBanner button {
-      background: #222;
+      background: #1e1e1e;
       color: #fff;
       padding: 4px 10px;
     }
 
-    /* 棋盤容器 */
+    /* 棋盤主體 (450px x 500px) */
     .board-container {
       position: relative;
       width: 450px;
       height: 500px;
       background: var(--board-bg);
       border: 3px solid var(--board-line);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       border-radius: 4px;
+      margin: 4px 0;
     }
     svg.board-grid {
       position: absolute;
@@ -105,20 +148,20 @@
       transform: translate(-50%, -50%);
       background: radial-gradient(circle at 35% 35%, #fff6e0, #deb887);
       box-shadow: 2px 3px 6px rgba(0,0,0,0.4), inset 0 0 0 2px #c99e6b;
-      transition: transform 0.15s ease;
+      transition: transform 0.12s ease;
       z-index: 2;
     }
     .piece.red { color: var(--red-piece); border: 1px solid var(--red-piece); }
     .piece.black { color: var(--black-piece); border: 1px solid var(--black-piece); }
     .piece.selected {
       transform: translate(-50%, -50%) scale(1.15);
-      box-shadow: 0 0 12px 4px #ffeb3b, 2px 3px 6px rgba(0,0,0,0.4);
+      box-shadow: 0 0 14px 4px #ffeb3b, 2px 3px 6px rgba(0,0,0,0.4);
       z-index: 10;
     }
     .click-target {
       position: absolute;
-      width: 46px;
-      height: 46px;
+      width: 48px;
+      height: 48px;
       transform: translate(-50%, -50%);
       border-radius: 50%;
       cursor: pointer;
@@ -139,34 +182,43 @@
 <body>
 
   <div class="panel">
-    <button class="primary" id="btnCopyUrl">📋 邀請連結</button>
+    <button class="primary" id="btnCopyUrl">📋 複製邀請連結</button>
     <select id="roleSelector">
       <option value="red">我是紅方</option>
       <option value="black">我是黑方</option>
     </select>
+    <button id="btnFlip">🔄 翻轉視角</button>
     <button id="btnUndo">悔棋 (剩 3 次)</button>
     <button id="btnReset">🔄 新局</button>
-    <button id="btnVoice" class="voice-btn">🎙️ 開啟語音對話</button>
+    <button id="btnVoice" class="voice-btn">🎙️ 開啟語音</button>
   </div>
 
-  <!-- 對方悔棋請求彈窗 -->
   <div id="undoBanner">
-    <span>對方申請悔棋，是否同意？</span>
+    <span id="undoBannerText">對方申請悔棋，是否同意？</span>
     <button id="btnAcceptUndo">同意</button>
     <button id="btnRejectUndo">拒絕</button>
   </div>
 
   <div class="status-bar" id="statusBar">連線中...</div>
+  <div class="voice-status" id="voiceStatus"></div>
 
-  <!-- 象棋盤 -->
+  <!-- 上方戰利品區 -->
+  <div class="graveyard" id="topGraveyard">
+    <span id="topGraveyardLabel">上方戰利品：</span>
+    <div class="graveyard-pieces" id="topCaptured"></div>
+  </div>
+
+  <!-- 棋盤容器 -->
   <div class="board-container">
     <svg class="board-grid" viewBox="0 0 450 500">
       <rect x="25" y="25" width="400" height="450" fill="none" stroke="#5c3a1e" stroke-width="2"/>
       <g stroke="#5c3a1e" stroke-width="1.2">
+        <!-- 橫線 -->
         <line x1="25" y1="75" x2="425" y2="75" /><line x1="25" y1="125" x2="425" y2="125" />
         <line x1="25" y1="175" x2="425" y2="175" /><line x1="25" y1="225" x2="425" y2="225" />
         <line x1="25" y1="275" x2="425" y2="275" /><line x1="25" y1="325" x2="425" y2="325" />
         <line x1="25" y1="375" x2="425" y2="375" /><line x1="25" y1="425" x2="425" y2="425" />
+        <!-- 直線 -->
         <line x1="75" y1="25" x2="75" y2="225" /><line x1="125" y1="25" x2="125" y2="225" />
         <line x1="175" y1="25" x2="175" y2="225" /><line x1="225" y1="25" x2="225" y2="225" />
         <line x1="275" y1="25" x2="275" y2="225" /><line x1="325" y1="25" x2="325" y2="225" />
@@ -175,23 +227,30 @@
         <line x1="175" y1="275" x2="175" y2="475" /><line x1="225" y1="275" x2="225" y2="475" />
         <line x1="275" y1="275" x2="275" y2="475" /><line x1="325" y1="275" x2="325" y2="475" />
         <line x1="375" y1="275" x2="375" y2="475" />
+        <!-- 九宮格斜線 -->
         <line x1="175" y1="25" x2="275" y2="125" /><line x1="275" y1="25" x2="175" y2="125" />
         <line x1="175" y1="375" x2="275" y2="475" /><line x1="275" y1="375" x2="175" y2="475" />
       </g>
-      <text x="125" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">楚 河</text>
-      <text x="325" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">漢 界</text>
+      <text id="riverTextLeft" x="125" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">楚 河</text>
+      <text id="riverTextRight" x="325" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">漢 界</text>
     </svg>
     <div id="boardInteractiveLayer"></div>
   </div>
 
+  <!-- 下方戰利品區 -->
+  <div class="graveyard" id="bottomGraveyard">
+    <span id="bottomGraveyardLabel">下方戰利品：</span>
+    <div class="graveyard-pieces" id="bottomCaptured"></div>
+  </div>
+
   <audio id="remoteAudio" autoplay playsinline></audio>
 
-  <!-- Firebase 模組載入 -->
+  <!-- Firebase 與遊戲腳本 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, set, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, set, update, onValue, get, push, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // 1. Firebase 設定（請替換）
+    // 1. Firebase 設定（請務必替換為您專案的真實 Config）
 const firebaseConfig = {
   apiKey: "AIzaSyDk0esu3nkwXG7LHNdSE8XEcC0IBDZ25aA",
   authDomain: "battle-f41ad.firebaseapp.com",
@@ -216,17 +275,17 @@ const firebaseConfig = {
     const roomRef = ref(db, `rooms/${roomId}`);
     const voiceRef = ref(db, `rooms/${roomId}/voice`);
 
-    // 3. 初始棋盤與常數
+    // 3. 初始盤面（以空字串 '' 取代 null，徹底避開 Firebase 刪除空陣列的 Bug）
     const INITIAL_BOARD = [
       ['b_c','b_m','b_x','b_s','b_j','b_s','b_x','b_m','b_c'],
-      [ null, null, null, null, null, null, null, null, null ],
-      [ null,'b_p', null, null, null, null, null,'b_p', null ],
-      ['b_z', null,'b_z', null,'b_z', null,'b_z', null,'b_z'],
-      [ null, null, null, null, null, null, null, null, null ],
-      [ null, null, null, null, null, null, null, null, null ],
-      ['r_b', null,'r_b', null,'r_b', null,'r_b', null,'r_b'],
-      [ null,'r_p', null, null, null, null, null,'r_p', null ],
-      [ null, null, null, null, null, null, null, null, null ],
+      ['','','','','','','','',''],
+      ['','b_p','','','','','','b_p',''],
+      ['b_z','','b_z','','b_z','','b_z','','b_z'],
+      ['','','','','','','','',''],
+      ['','','','','','','','',''],
+      ['r_b','','r_b','','r_b','','r_b','','r_b'],
+      ['','r_p','','','','','','r_p',''],
+      ['','','','','','','','',''],
       ['r_c','r_m','r_x','r_s','r_j','r_s','r_x','r_m','r_c']
     ];
 
@@ -245,31 +304,36 @@ const firebaseConfig = {
       board: INITIAL_BOARD,
       turn: 'red',
       lastMove: null,
-      history: [],              // 走子歷史紀錄
-      undoChances: { red: 3, black: 3 }, // 悔棋剩餘次數
-      undoRequest: null         // 悔棋請求狀態
+      history: [],
+      undoChances: { red: 3, black: 3 },
+      undoRequest: null,
+      captured: { red: [], black: [] }
     };
-    let selectedPos = null;
 
-    // 音效產生器
-    function playClickSound() {
+    let selectedPos = null;
+    let isFlipped = false; // 視角是否翻轉
+
+    // 音效
+    function playClickSound(eat = false) {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(320, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.06);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.06);
+        osc.type = eat ? 'sawtooth' : 'triangle';
+        const startFreq = eat ? 420 : 320;
+        const endFreq = eat ? 140 : 100;
+        osc.frequency.setValueAtTime(startFreq, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.35, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
         osc.start();
-        osc.stop(ctx.currentTime + 0.06);
+        osc.stop(ctx.currentTime + 0.08);
       } catch (e) {}
     }
 
-    // 4. Firebase 監聽遊戲狀態
+    // 4. 連線資料庫並持續監聽
     get(roomRef).then((snapshot) => {
       if (!snapshot.exists()) {
         set(roomRef, gameState);
@@ -280,44 +344,71 @@ const firebaseConfig = {
       const data = snapshot.val();
       if (!data || !data.board) return;
 
+      // 修復可能存在的舊版 null 資料
+      const safeBoard = [];
+      for (let r = 0; r < 10; r++) {
+        const row = [];
+        for (let c = 0; c < 9; c++) {
+          row.push(data.board?.[r]?.[c] || '');
+        }
+        safeBoard.push(row);
+      }
+      data.board = safeBoard;
+
       gameState = data;
       renderBoard();
-      playClickSound();
       updateUI();
       checkUndoRequest();
     });
 
-    // 5. 棋盤渲染與走子
+    // 5. 坐標映射（支援翻轉）
+    function getScreenXY(r, c) {
+      const effectiveR = isFlipped ? 9 - r : r;
+      const effectiveC = isFlipped ? 8 - c : c;
+      return {
+        x: 25 + effectiveC * 50,
+        y: 25 + effectiveR * 50
+      };
+    }
+
+    // 6. 畫面渲染
     const layer = document.getElementById('boardInteractiveLayer');
     const roleSelector = document.getElementById('roleSelector');
 
     function renderBoard() {
       layer.innerHTML = '';
-      if (gameState.lastMove) {
+
+      // 最後一步標記
+      if (gameState.lastMove && gameState.lastMove.to) {
+        const [tr, tc] = gameState.lastMove.to;
+        const { x, y } = getScreenXY(tr, tc);
         const marker = document.createElement('div');
         marker.className = 'last-move-marker';
-        marker.style.left = `${25 + gameState.lastMove.to[1] * 50}px`;
-        marker.style.top = `${25 + gameState.lastMove.to[0] * 50}px`;
+        marker.style.left = `${x}px`;
+        marker.style.top = `${y}px`;
         layer.appendChild(marker);
       }
 
+      // 產生 90 個交點判定格與棋子
       for (let r = 0; r < 10; r++) {
         for (let c = 0; c < 9; c++) {
+          const { x, y } = getScreenXY(r, c);
+
           const target = document.createElement('div');
           target.className = 'click-target';
-          target.style.left = `${25 + c * 50}px`;
-          target.style.top = `${25 + r * 50}px`;
+          target.style.left = `${x}px`;
+          target.style.top = `${y}px`;
           target.onclick = () => onCellClick(r, c);
           layer.appendChild(target);
 
           const pieceKey = gameState.board[r][c];
-          if (pieceKey) {
+          if (pieceKey && PIECE_MAP[pieceKey]) {
             const pieceInfo = PIECE_MAP[pieceKey];
             const pDiv = document.createElement('div');
             pDiv.className = `piece ${pieceInfo.side}`;
             pDiv.innerText = pieceInfo.name;
-            pDiv.style.left = `${25 + c * 50}px`;
-            pDiv.style.top = `${25 + r * 50}px`;
+            pDiv.style.left = `${x}px`;
+            pDiv.style.top = `${y}px`;
 
             if (selectedPos && selectedPos[0] === r && selectedPos[1] === c) {
               pDiv.classList.add('selected');
@@ -330,15 +421,53 @@ const firebaseConfig = {
           }
         }
       }
+
+      renderGraveyard();
     }
 
+    function renderGraveyard() {
+      const topCaptured = document.getElementById('topCaptured');
+      const bottomCaptured = document.getElementById('bottomCaptured');
+      topCaptured.innerHTML = '';
+      bottomCaptured.innerHTML = '';
+
+      const redCaptured = gameState.captured?.red || [];
+      const blackCaptured = gameState.captured?.black || [];
+
+      // 若黑方在上方，紅方吃到的黑子顯示在下方戰利品區
+      const topPieces = isFlipped ? redCaptured : blackCaptured;
+      const bottomPieces = isFlipped ? blackCaptured : redCaptured;
+
+      topPieces.forEach(k => {
+        if (!PIECE_MAP[k]) return;
+        const el = document.createElement('span');
+        el.className = `mini-piece ${PIECE_MAP[k].side}`;
+        el.innerText = PIECE_MAP[k].name;
+        topCaptured.appendChild(el);
+      });
+
+      bottomPieces.forEach(k => {
+        if (!PIECE_MAP[k]) return;
+        const el = document.createElement('span');
+        el.className = `mini-piece ${PIECE_MAP[k].side}`;
+        el.innerText = PIECE_MAP[k].name;
+        bottomCaptured.appendChild(el);
+      });
+    }
+
+    // 7. 點擊走子判定
     function onCellClick(r, c) {
       const myRole = roleSelector.value;
       const pieceKey = gameState.board[r][c];
       const clickedPiece = pieceKey ? PIECE_MAP[pieceKey] : null;
 
       if (!selectedPos) {
-        if (!clickedPiece || clickedPiece.side !== myRole || myRole !== gameState.turn) return;
+        if (!clickedPiece) return;
+        if (clickedPiece.side !== myRole) return;
+        if (myRole !== gameState.turn) {
+          alert(`現在是 ${gameState.turn === 'red' ? '紅方' : '黑方'} 的回合，請稍候！`);
+          return;
+        }
         selectedPos = [r, c];
         renderBoard();
         return;
@@ -348,44 +477,79 @@ const firebaseConfig = {
       const selectedPieceKey = gameState.board[fromR][fromC];
       const selectedPiece = PIECE_MAP[selectedPieceKey];
 
+      // 換選自己同隊的其他棋子
       if (clickedPiece && clickedPiece.side === selectedPiece.side) {
         selectedPos = [r, c];
         renderBoard();
         return;
       }
 
-      // 落子：記錄歷史盤面
+      // 落子
+      const isEat = Boolean(clickedPiece && clickedPiece.side !== selectedPiece.side);
+      const nextBoard = JSON.parse(JSON.stringify(gameState.board));
+      nextBoard[r][c] = selectedPieceKey;
+      nextBoard[fromR][fromC] = '';
+
+      const capturedList = gameState.captured ? { ...gameState.captured } : { red: [], black: [] };
+      if (isEat) {
+        if (selectedPiece.side === 'red') {
+          capturedList.red = [...(capturedList.red || []), pieceKey];
+        } else {
+          capturedList.black = [...(capturedList.black || []), pieceKey];
+        }
+      }
+
       const currentHistory = gameState.history ? [...gameState.history] : [];
       currentHistory.push({
         board: gameState.board,
         turn: gameState.turn,
-        lastMove: gameState.lastMove || null
+        lastMove: gameState.lastMove || null,
+        captured: gameState.captured || { red: [], black: [] }
       });
-
-      const nextBoard = JSON.parse(JSON.stringify(gameState.board));
-      nextBoard[r][c] = selectedPieceKey;
-      nextBoard[fromR][fromC] = null;
 
       const nextTurn = gameState.turn === 'red' ? 'black' : 'red';
       selectedPos = null;
+      playClickSound(isEat);
 
       update(roomRef, {
         board: nextBoard,
         turn: nextTurn,
         lastMove: { from: [fromR, fromC], to: [r, c] },
-        history: currentHistory
+        history: currentHistory,
+        captured: capturedList
       });
     }
 
-    // 6. 悔棋邏輯
+    // 8. 視角切換與身份連動
+    const btnFlip = document.getElementById('btnFlip');
+    btnFlip.onclick = () => {
+      isFlipped = !isFlipped;
+      renderBoard();
+    };
+
+    roleSelector.onchange = () => {
+      // 切換為黑方時自動將視角翻轉為黑方在下方
+      if (roleSelector.value === 'black') {
+        isFlipped = true;
+      } else {
+        isFlipped = false;
+      }
+      renderBoard();
+      updateUI();
+    };
+
+    // 9. UI 狀態更新與悔棋
     const btnUndo = document.getElementById('btnUndo');
     const undoBanner = document.getElementById('undoBanner');
+    const statusBar = document.getElementById('statusBar');
 
     function updateUI() {
-      const turnText = gameState.turn === 'red' ? '🔴 紅方下子' : '⚫ 黑方下子';
-      document.getElementById('statusBar').innerText = `房間：${roomId} ｜ 輪到：${turnText}`;
-
       const myRole = roleSelector.value;
+      const isMyTurn = (gameState.turn === myRole);
+      const turnSymbol = gameState.turn === 'red' ? '🔴 紅方' : '⚫ 黑方';
+      
+      statusBar.innerHTML = `房間：<b>${roomId}</b> ｜ 輪到：<b>${turnSymbol}</b> ${isMyTurn ? '（👉 輪到您）' : '（等待對手中...）'}`;
+
       const myChances = (gameState.undoChances && gameState.undoChances[myRole] !== undefined)
         ? gameState.undoChances[myRole]
         : 3;
@@ -394,62 +558,62 @@ const firebaseConfig = {
       btnUndo.disabled = (myChances <= 0 || !gameState.history || gameState.history.length === 0);
     }
 
-    roleSelector.onchange = updateUI;
-
     btnUndo.onclick = () => {
       const myRole = roleSelector.value;
-      const myChances = gameState.undoChances[myRole] ?? 3;
-      if (myChances <= 0) return alert('本局悔棋次數已用盡！');
-      if (!gameState.history || gameState.history.length === 0) return alert('目前尚無走子紀錄，無法悔棋。');
+      const myChances = gameState.undoChances?.[myRole] ?? 3;
+      if (myChances <= 0) return alert('本局 3 次悔棋機會已用完！');
+      if (!gameState.history || gameState.history.length === 0) return alert('目前盤面為開局狀態，尚無步數可悔棋。');
 
       update(roomRef, {
-        undoRequest: { requester: myRole }
+        undoRequest: { requester: myRole, timestamp: Date.now() }
       });
-      alert('已送出悔棋請求，等待對方同意...');
+      alert('已送出悔棋請求，請等待對方同意...');
     };
 
     function checkUndoRequest() {
       const myRole = roleSelector.value;
       const req = gameState.undoRequest;
 
-      // 如果有請求且不是自己發起的，顯示彈窗
       if (req && req.requester !== myRole) {
+        document.getElementById('undoBannerText').innerText = `對方（${req.requester === 'red' ? '紅方' : '黑方'}）申請悔棋，是否同意？`;
         undoBanner.style.display = 'flex';
       } else {
         undoBanner.style.display = 'none';
       }
     }
 
-    // 對方點擊「同意悔棋」
+    // 同意悔棋
     document.getElementById('btnAcceptUndo').onclick = () => {
       const req = gameState.undoRequest;
       if (!req) return;
 
       const requester = req.requester;
-      const history = [...gameState.history];
-      const previousState = history.pop(); // 取回上一手盤面
+      const history = [...(gameState.history || [])];
+      const previousState = history.pop();
+      if (!previousState) return;
 
-      const newChances = { ...gameState.undoChances };
+      const newChances = { ...(gameState.undoChances || { red: 3, black: 3 }) };
       newChances[requester] = Math.max(0, (newChances[requester] ?? 3) - 1);
 
       update(roomRef, {
         board: previousState.board,
         turn: previousState.turn,
         lastMove: previousState.lastMove,
+        captured: previousState.captured || { red: [], black: [] },
         history: history,
         undoChances: newChances,
         undoRequest: null
       });
     };
 
-    // 對方點擊「拒絕悔棋」
+    // 拒絕悔棋
     document.getElementById('btnRejectUndo').onclick = () => {
       update(roomRef, { undoRequest: null });
     };
 
     // 重新開局
     document.getElementById('btnReset').onclick = () => {
-      if (confirm('確定要重新開局嗎？這將重置所有歷史紀錄與悔棋次數。')) {
+      if (confirm('確定要清空棋盤並重新開始新對局嗎？')) {
         selectedPos = null;
         set(roomRef, {
           board: INITIAL_BOARD,
@@ -457,27 +621,32 @@ const firebaseConfig = {
           lastMove: null,
           history: [],
           undoChances: { red: 3, black: 3 },
-          undoRequest: null
+          undoRequest: null,
+          captured: { red: [], black: [] }
         });
       }
     };
 
     document.getElementById('btnCopyUrl').onclick = () => {
       navigator.clipboard.writeText(window.location.href);
-      alert('已複製邀請連結！將網址傳給對方即可連線。');
+      alert('對戰邀請網址已複製！將連結傳給對手即可連線對弈。');
     };
 
     // ==========================================
-    // 7. WebRTC 雙向即時語音對話 (Firebase Signaling)
+    // 10. WebRTC 雙向語音通話（修正候選通道傳輸）
     // ==========================================
     const btnVoice = document.getElementById('btnVoice');
+    const voiceStatus = document.getElementById('voiceStatus');
     const remoteAudio = document.getElementById('remoteAudio');
     let localStream = null;
     let peerConn = null;
     let isVoiceActive = false;
 
     const rtcConfig = {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
     };
 
     btnVoice.onclick = async () => {
@@ -486,48 +655,91 @@ const firebaseConfig = {
         return;
       }
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         isVoiceActive = true;
-        btnVoice.innerText = '🔴 關閉語音對話';
+        btnVoice.innerText = '🔴 關閉語音';
         btnVoice.classList.add('active');
+        voiceStatus.innerText = '正在建立 P2P 語音連線...';
 
-        startWebRTCSignaling();
+        startWebRTC();
       } catch (err) {
-        alert('無法啟動麥克風，請確認是否已給予權限，且網頁運作於 HTTPS 連線下。');
+        alert('無法啟動麥克風！請確認：\n1. 網頁是否在 HTTPS 安全連線環境\n2. 瀏覽器麥克風權限已允許');
       }
     };
 
     function stopVoice() {
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-      if (peerConn) {
-        peerConn.close();
-      }
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (peerConn) peerConn.close();
       isVoiceActive = false;
-      btnVoice.innerText = '🎙️ 開啟語音對話';
+      btnVoice.innerText = '🎙️ 開啟語音';
       btnVoice.classList.remove('active');
-      set(voiceRef, null);
+      voiceStatus.innerText = '語音通話已關閉';
+      remove(voiceRef);
     }
 
-    async function startWebRTCSignaling() {
+    async function startWebRTC() {
       peerConn = new RTCPeerConnection(rtcConfig);
 
-      // 加入本地麥克風音軌
       localStream.getTracks().forEach(track => peerConn.addTrack(track, localStream));
 
-      // 接收對方聲音
       peerConn.ontrack = (event) => {
         remoteAudio.srcObject = event.streams[0];
+        voiceStatus.innerText = '🟢 語音通話已連線，可以即時通話！';
+      };
+
+      peerConn.onconnectionstatechange = () => {
+        if (peerConn.connectionState === 'connected') {
+          voiceStatus.innerText = '🟢 語音通話已連線，可以即時通話！';
+        } else if (peerConn.connectionState === 'disconnected') {
+          voiceStatus.innerText = '語音已中斷';
+        }
       };
 
       const myRole = roleSelector.value;
+      const peerRole = (myRole === 'red') ? 'black' : 'red';
 
-      // ICE Candidate 交換
+      // 透過 push 方式傳送候選資訊，杜絕覆寫問題
       peerConn.onicecandidate = (event) => {
         if (event.candidate) {
-          const candRef = ref(db, `rooms/${roomId}/voice/candidates/${myRole}`);
-          set(candRef, JSON.stringify(event.candidate));
+          push(ref(db, `rooms/${roomId}/voice/candidates_${myRole}`), JSON.stringify(event.candidate));
+        }
+      };
+
+      // 監聽對方的 Candidates
+      onChildAdded(ref(db, `rooms/${roomId}/voice/candidates_${peerRole}`), (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+          peerConn.addIceCandidate(new RTCIceCandidate(JSON.parse(val))).catch(() => {});
+        }
+      });
+
+      // 紅方建立 Offer，黑方回應 Answer
+      if (myRole === 'red') {
+        const offer = await peerConn.createOffer();
+        await peerConn.setLocalDescription(offer);
+        set(ref(db, `rooms/${roomId}/voice/offer`), JSON.stringify(offer));
+
+        onValue(ref(db, `rooms/${roomId}/voice/answer`), async (snapshot) => {
+          const val = snapshot.val();
+          if (val && !peerConn.currentRemoteDescription) {
+            await peerConn.setRemoteDescription(new RTCSessionDescription(JSON.parse(val)));
+          }
+        });
+      } else {
+        onValue(ref(db, `rooms/${roomId}/voice/offer`), async (snapshot) => {
+          const val = snapshot.val();
+          if (val && !peerConn.currentRemoteDescription) {
+            await peerConn.setRemoteDescription(new RTCSessionDescription(JSON.parse(val)));
+            const answer = await peerConn.createAnswer();
+            await peerConn.setLocalDescription(answer);
+            set(ref(db, `rooms/${roomId}/voice/answer`), JSON.stringify(answer));
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>SON.stringify(event.candidate));
         }
       };
 
