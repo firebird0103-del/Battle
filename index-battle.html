@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>線上象棋即時對戰 (含悔棋與雙向語音)</title>
+  <style>
+    :root {
+      --board-bg: #e6c280;
+      --board-line: #5c3a1e;
+      --red-piece: #c02c2c;
+      --black-piece: #1f2421;
+    }
+    body {
+      margin: 0;
+      padding: 15px;
+      font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #25282a;
+      color: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+    .panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+      max-width: 520px;
+    }
+    button, select {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: #3e4448;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover { background: #525a60; }
+    button.primary { background: #b86b24; font-weight: bold; }
+    button.voice-btn { background: #2e7d32; }
+    button.voice-btn.active { background: #c62828; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-bar {
+      font-size: 15px;
+      font-weight: bold;
+      color: #f5deb3;
+      margin-bottom: 8px;
+    }
+
+    /* 悔棋請求通知橫幅 */
+    #undoBanner {
+      display: none;
+      background: #ff9800;
+      color: #000;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    #undoBanner button {
+      background: #222;
+      color: #fff;
+      padding: 4px 10px;
+    }
+
+    /* 棋盤容器 */
+    .board-container {
+      position: relative;
+      width: 450px;
+      height: 500px;
+      background: var(--board-bg);
+      border: 3px solid var(--board-line);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      border-radius: 4px;
+    }
+    svg.board-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .piece {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle at 35% 35%, #fff6e0, #deb887);
+      box-shadow: 2px 3px 6px rgba(0,0,0,0.4), inset 0 0 0 2px #c99e6b;
+      transition: transform 0.15s ease;
+      z-index: 2;
+    }
+    .piece.red { color: var(--red-piece); border: 1px solid var(--red-piece); }
+    .piece.black { color: var(--black-piece); border: 1px solid var(--black-piece); }
+    .piece.selected {
+      transform: translate(-50%, -50%) scale(1.15);
+      box-shadow: 0 0 12px 4px #ffeb3b, 2px 3px 6px rgba(0,0,0,0.4);
+      z-index: 10;
+    }
+    .click-target {
+      position: absolute;
+      width: 46px;
+      height: 46px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .last-move-marker {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border: 2px dashed #ff9800;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="panel">
+    <button class="primary" id="btnCopyUrl">📋 邀請連結</button>
+    <select id="roleSelector">
+      <option value="red">我是紅方</option>
+      <option value="black">我是黑方</option>
+    </select>
+    <button id="btnUndo">悔棋 (剩 3 次)</button>
+    <button id="btnReset">🔄 新局</button>
+    <button id="btnVoice" class="voice-btn">🎙️ 開啟語音對話</button>
+  </div>
+
+  <!-- 對方悔棋請求彈窗 -->
+  <div id="undoBanner">
+    <span>對方申請悔棋，是否同意？</span>
+    <button id="btnAcceptUndo">同意</button>
+    <button id="btnRejectUndo">拒絕</button>
+  </div>
+
+  <div class="status-bar" id="statusBar">連線中...</div>
+
+  <!-- 象棋盤 -->
+  <div class="board-container">
+    <svg class="board-grid" viewBox="0 0 450 500">
+      <rect x="25" y="25" width="400" height="450" fill="none" stroke="#5c3a1e" stroke-width="2"/>
+      <g stroke="#5c3a1e" stroke-width="1.2">
+        <line x1="25" y1="75" x2="425" y2="75" /><line x1="25" y1="125" x2="425" y2="125" />
+        <line x1="25" y1="175" x2="425" y2="175" /><line x1="25" y1="225" x2="425" y2="225" />
+        <line x1="25" y1="275" x2="425" y2="275" /><line x1="25" y1="325" x2="425" y2="325" />
+        <line x1="25" y1="375" x2="425" y2="375" /><line x1="25" y1="425" x2="425" y2="425" />
+        <line x1="75" y1="25" x2="75" y2="225" /><line x1="125" y1="25" x2="125" y2="225" />
+        <line x1="175" y1="25" x2="175" y2="225" /><line x1="225" y1="25" x2="225" y2="225" />
+        <line x1="275" y1="25" x2="275" y2="225" /><line x1="325" y1="25" x2="325" y2="225" />
+        <line x1="375" y1="25" x2="375" y2="225" />
+        <line x1="75" y1="275" x2="75" y2="475" /><line x1="125" y1="275" x2="125" y2="475" />
+        <line x1="175" y1="275" x2="175" y2="475" /><line x1="225" y1="275" x2="225" y2="475" />
+        <line x1="275" y1="275" x2="275" y2="475" /><line x1="325" y1="275" x2="325" y2="475" />
+        <line x1="375" y1="275" x2="375" y2="475" />
+        <line x1="175" y1="25" x2="275" y2="125" /><line x1="275" y1="25" x2="175" y2="125" />
+        <line x1="175" y1="375" x2="275" y2="475" /><line x1="275" y1="375" x2="175" y2="475" />
+      </g>
+      <text x="125" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">楚 河</text>
+      <text x="325" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">漢 界</text>
+    </svg>
+    <div id="boardInteractiveLayer"></div>
+  </div>
+
+  <audio id="remoteAudio" autoplay playsinline></audio>
+
+  <!-- Firebase 模組載入 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // 1. Firebase 設定（請替換）
+const firebaseConfig = {
+  apiKey: "AIzaSyDk0esu3nkwXG7LHNdSE8XEcC0IBDZ25aA",
+  authDomain: "battle-f41ad.firebaseapp.com",
+  databaseURL: "https://battle-f41ad-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "battle-f41ad",
+  storageBucket: "battle-f41ad.firebasestorage.app",
+  messagingSenderId: "429805603890",
+  appId: "1:429805603890:web:53d1ea22c238a24fa4402b"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // 2. 房間代碼
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('room');
+    if (!roomId) {
+      roomId = Math.random().toString(36).substring(2, 8);
+      urlParams.set('room', roomId);
+      window.history.replaceState(null, '', '?' + urlParams.toString());
+    }
+    const roomRef = ref(db, `rooms/${roomId}`);
+    const voiceRef = ref(db, `rooms/${roomId}/voice`);
+
+    // 3. 初始棋盤與常數
+    const INITIAL_BOARD = [
+      ['b_c','b_m','b_x','b_s','b_j','b_s','b_x','b_m','b_c'],
+      [ null, null, null, null, null, null, null, null, null ],
+      [ null,'b_p', null, null, null, null, null,'b_p', null ],
+      ['b_z', null,'b_z', null,'b_z', null,'b_z', null,'b_z'],
+      [ null, null, null, null, null, null, null, null, null ],
+      [ null, null, null, null, null, null, null, null, null ],
+      ['r_b', null,'r_b', null,'r_b', null,'r_b', null,'r_b'],
+      [ null,'r_p', null, null, null, null, null,'r_p', null ],
+      [ null, null, null, null, null, null, null, null, null ],
+      ['r_c','r_m','r_x','r_s','r_j','r_s','r_x','r_m','r_c']
+    ];
+
+    const PIECE_MAP = {
+      'b_c': { name: '車', side: 'black' }, 'b_m': { name: '馬', side: 'black' },
+      'b_x': { name: '象', side: 'black' }, 'b_s': { name: '士', side: 'black' },
+      'b_j': { name: '將', side: 'black' }, 'b_p': { name: '砲', side: 'black' },
+      'b_z': { name: '卒', side: 'black' },
+      'r_c': { name: '俥', side: 'red' },   'r_m': { name: '傌', side: 'red' },
+      'r_x': { name: '相', side: 'red' },   'r_s': { name: '仕', side: 'red' },
+      'r_j': { name: '帥', side: 'red' },   'r_p': { name: '炮', side: 'red' },
+      'r_b': { name: '兵', side: 'red' }
+    };
+
+    let gameState = {
+      board: INITIAL_BOARD,
+      turn: 'red',
+      lastMove: null,
+      history: [],              // 走子歷史紀錄
+      undoChances: { red: 3, black: 3 }, // 悔棋剩餘次數
+      undoRequest: null         // 悔棋請求狀態
+    };
+    let selectedPos = null;
+
+    // 音效產生器
+    function playClickSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.06);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.06);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.06);
+      } catch (e) {}
+    }
+
+    // 4. Firebase 監聽遊戲狀態
+    get(roomRef).then((snapshot) => {
+      if (!snapshot.exists()) {
+        set(roomRef, gameState);
+      }
+    });
+
+    onValue(roomRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data || !data.board) return;
+
+      gameState = data;
+      renderBoard();
+      playClickSound();
+      updateUI();
+      checkUndoRequest();
+    });
+
+    // 5. 棋盤渲染與走子
+    const layer = document.getElementById('boardInteractiveLayer');
+    const roleSelector = document.getElementById('roleSelector');
+
+    function renderBoard() {
+      layer.innerHTML = '';
+      if (gameState.lastMove) {
+        const marker = document.createElement('div');
+        marker.className = 'last-move-marker';
+        marker.style.left = `${25 + gameState.lastMove.to[1] * 50}px`;
+        marker.style.top = `${25 + gameState.lastMove.to[0] * 50}px`;
+        layer.appendChild(marker);
+      }
+
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
+          const target = document.createElement('div');
+          target.className = 'click-target';
+          target.style.left = `${25 + c * 50}px`;
+          target.style.top = `${25 + r * 50}px`;
+          target.onclick = () => onCellClick(r, c);
+          layer.appendChild(target);
+
+          const pieceKey = gameState.board[r][c];
+          if (pieceKey) {
+            const pieceInfo = PIECE_MAP[pieceKey];
+            const pDiv = document.createElement('div');
+            pDiv.className = `piece ${pieceInfo.side}`;
+            pDiv.innerText = pieceInfo.name;
+            pDiv.style.left = `${25 + c * 50}px`;
+            pDiv.style.top = `${25 + r * 50}px`;
+
+            if (selectedPos && selectedPos[0] === r && selectedPos[1] === c) {
+              pDiv.classList.add('selected');
+            }
+            pDiv.onclick = (e) => {
+              e.stopPropagation();
+              onCellClick(r, c);
+            };
+            layer.appendChild(pDiv);
+          }
+        }
+      }
+    }
+
+    function onCellClick(r, c) {
+      const myRole = roleSelector.value;
+      const pieceKey = gameState.board[r][c];
+      const clickedPiece = pieceKey ? PIECE_MAP[pieceKey] : null;
+
+      if (!selectedPos) {
+        if (!clickedPiece || clickedPiece.side !== myRole || myRole !== gameState.turn) return;
+        selectedPos = [r, c];
+        renderBoard();
+        return;
+      }
+
+      const [fromR, fromC] = selectedPos;
+      const selectedPieceKey = gameState.board[fromR][fromC];
+      const selectedPiece = PIECE_MAP[selectedPieceKey];
+
+      if (clickedPiece && clickedPiece.side === selectedPiece.side) {
+        selectedPos = [r, c];
+        renderBoard();
+        return;
+      }
+
+      // 落子：記錄歷史盤面
+      const currentHistory = gameState.history ? [...gameState.history] : [];
+      currentHistory.push({
+        board: gameState.board,
+        turn: gameState.turn,
+        lastMove: gameState.lastMove || null
+      });
+
+      const nextBoard = JSON.parse(JSON.stringify(gameState.board));
+      nextBoard[r][c] = selectedPieceKey;
+      nextBoard[fromR][fromC] = null;
+
+      const nextTurn = gameState.turn === 'red' ? 'black' : 'red';
+      selectedPos = null;
+
+      update(roomRef, {
+        board: nextBoard,
+        turn: nextTurn,
+        lastMove: { from: [fromR, fromC], to: [r, c] },
+        history: currentHistory
+      });
+    }
+
+    // 6. 悔棋邏輯
+    const btnUndo = document.getElementById('btnUndo');
+    const undoBanner = document.getElementById('undoBanner');
+
+    function updateUI() {
+      const turnText = gameState.turn === 'red' ? '🔴 紅方下子' : '⚫ 黑方下子';
+      document.getElementById('statusBar').innerText = `房間：${roomId} ｜ 輪到：${turnText}`;
+
+      const myRole = roleSelector.value;
+      const myChances = (gameState.undoChances && gameState.undoChances[myRole] !== undefined)
+        ? gameState.undoChances[myRole]
+        : 3;
+
+      btnUndo.innerText = `悔棋 (剩 ${myChances} 次)`;
+      btnUndo.disabled = (myChances <= 0 || !gameState.history || gameState.history.length === 0);
+    }
+
+    roleSelector.onchange = updateUI;
+
+    btnUndo.onclick = () => {
+      const myRole = roleSelector.value;
+      const myChances = gameState.undoChances[myRole] ?? 3;
+      if (myChances <= 0) return alert('本局悔棋次數已用盡！');
+      if (!gameState.history || gameState.history.length === 0) return alert('目前尚無走子紀錄，無法悔棋。');
+
+      update(roomRef, {
+        undoRequest: { requester: myRole }
+      });
+      alert('已送出悔棋請求，等待對方同意...');
+    };
+
+    function checkUndoRequest() {
+      const myRole = roleSelector.value;
+      const req = gameState.undoRequest;
+
+      // 如果有請求且不是自己發起的，顯示彈窗
+      if (req && req.requester !== myRole) {
+        undoBanner.style.display = 'flex';
+      } else {
+        undoBanner.style.display = 'none';
+      }
+    }
+
+    // 對方點擊「同意悔棋」
+    document.getElementById('btnAcceptUndo').onclick = () => {
+      const req = gameState.undoRequest;
+      if (!req) return;
+
+      const requester = req.requester;
+      const history = [...gameState.history];
+      const previousState = history.pop(); // 取回上一手盤面
+
+      const newChances = { ...gameState.undoChances };
+      newChances[requester] = Math.max(0, (newChances[requester] ?? 3) - 1);
+
+      update(roomRef, {
+        board: previousState.board,
+        turn: previousState.turn,
+        lastMove: previousState.lastMove,
+        history: history,
+        undoChances: newChances,
+        undoRequest: null
+      });
+    };
+
+    // 對方點擊「拒絕悔棋」
+    document.getElementById('btnRejectUndo').onclick = () => {
+      update(roomRef, { undoRequest: null });
+    };
+
+    // 重新開局
+    document.getElementById('btnReset').onclick = () => {
+      if (confirm('確定要重新開局嗎？這將重置所有歷史紀錄與悔棋次數。')) {
+        selectedPos = null;
+        set(roomRef, {
+          board: INITIAL_BOARD,
+          turn: 'red',
+          lastMove: null,
+          history: [],
+          undoChances: { red: 3, black: 3 },
+          undoRequest: null
+        });
+      }
+    };
+
+    document.getElementById('btnCopyUrl').onclick = () => {
+      navigator.clipboard.writeText(window.location.href);
+      alert('已複製邀請連結！將網址傳給對方即可連線。');
+    };
+
+    // ==========================================
+    // 7. WebRTC 雙向即時語音對話 (Firebase Signaling)
+    // ==========================================
+    const btnVoice = document.getElementById('btnVoice');
+    const remoteAudio = document.getElementById('remoteAudio');
+    let localStream = null;
+    let peerConn = null;
+    let isVoiceActive = false;
+
+    const rtcConfig = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    btnVoice.onclick = async () => {
+      if (isVoiceActive) {
+        stopVoice();
+        return;
+      }
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        isVoiceActive = true;
+        btnVoice.innerText = '🔴 關閉語音對話';
+        btnVoice.classList.add('active');
+
+        startWebRTCSignaling();
+      } catch (err) {
+        alert('無法啟動麥克風，請確認是否已給予權限，且網頁運作於 HTTPS 連線下。');
+      }
+    };
+
+    function stopVoice() {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (peerConn) {
+        peerConn.close();
+      }
+      isVoiceActive = false;
+      btnVoice.innerText = '🎙️ 開啟語音對話';
+      btnVoice.classList.remove('active');
+      set(voiceRef, null);
+    }
+
+    async function startWebRTCSignaling() {
+      peerConn = new RTCPeerConnection(rtcConfig);
+
+      // 加入本地麥克風音軌
+      localStream.getTracks().forEach(track => peerConn.addTrack(track, localStream));
+
+      // 接收對方聲音
+      peerConn.ontrack = (event) => {
+        remoteAudio.srcObject = event.streams[0];
+      };
+
+      const myRole = roleSelector.value;
+
+      // ICE Candidate 交換
+      peerConn.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candRef = ref(db, `rooms/${roomId}/voice/candidates/${myRole}`);
+          set(candRef, JSON.stringify(event.candidate));
+        }
+      };
+
+      // 紅方發起 Offer，黑方等待並回應 Answer
+      if (myRole === 'red') {
+        const offer = await peerConn.createOffer();
+        await peerConn.setLocalDescription(offer);
+        set(ref(db, `rooms/${roomId}/voice/offer`), JSON.stringify(offer));
+
+        // 監聽黑方的 Answer
+        onValue(ref(db, `rooms/${roomId}/voice/answer`), async (snapshot) => {
+          const val = snapshot.val();
+          if (val && !peerConn.currentRemoteDescription) {
+            await peerConn.setRemoteDescription(new RTCSessionDescription(JSON.parse(val)));
+          }
+        });
+
+        // 監聽黑方的 Candidate
+        onValue(ref(db, `rooms/${roomId}/voice/candidates/black`), (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            peerConn.addIceCandidate(new RTCIceCandidate(JSON.parse(val))).catch(()=>{});
+          }
+        });
+      } else {
+        // 黑方監聽紅方的 Offer
+        onValue(ref(db, `rooms/${roomId}/voice/offer`), async (snapshot) => {
+          const val = snapshot.val();
+          if (val && !peerConn.currentRemoteDescription) {
+            await peerConn.setRemoteDescription(new RTCSessionDescription(JSON.parse(val)));
+            const answer = await peerConn.createAnswer();
+            await peerConn.setLocalDescription(answer);
+            set(ref(db, `rooms/${roomId}/voice/answer`), JSON.stringify(answer));
+          }
+        });
+
+        // 監聽紅方的 Candidate
+        onValue(ref(db, `rooms/${roomId}/voice/candidates/red`), (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            peerConn.addIceCandidate(new RTCIceCandidate(JSON.parse(val))).catch(()=>{});
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>
