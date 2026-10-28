@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#23272a">
-  <title>同學象棋室 V2.1</title>
+  <title>同學象棋室 V2.2</title>
   <!--
     使用前請在 Firebase 專案 battle-f41ad 啟用 Authentication > Anonymous，
     並在 Realtime Database Rules 設定依匿名 uid 與房間席位控管的讀寫權限。
@@ -85,19 +85,34 @@
     .player .phead { display:flex; justify-content:space-between; gap:8px; align-items:center; }
     .player strong { font-size:17px; overflow-wrap:anywhere; }
     .player small { display:block; margin-top:6px; color:var(--muted); }
+    .player.turn-active { border-color:#e7b55f; background:#34302b; box-shadow:inset 0 0 0 1px #e7b55f77,0 0 14px #e8b45a24; }
+    .player.turn-active.turn-red { border-color:#fa8179; background:#482d31; }
+    .player.turn-active.turn-black { border-color:#e9c68e; background:#353734; }
+    .player.turn-active strong::before { content:'▶ '; color:#f5ce87; }
+
     .pill { border-radius:99px; font-size:11px; padding:3px 8px; background:#5c6570; white-space:nowrap; }
     .pill.red { background:#8c3534; } .pill.black { background:#51565c; } .pill.host { color:#30200d; background:#edbc70; }
     .game-layout { display:grid; grid-template-columns:minmax(0,1fr) 265px; align-items:start; gap:14px; }
     .board-side { min-width:0; display:flex; flex-direction:column; align-items:center; }
     .controls { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin:7px auto; }
     .controls button { padding:8px 10px; font-size:13px; }
-    .status { font-size:15px; font-weight:800; color:#f0d7a7; padding:5px; min-height:30px; }
+    .status { font-size:clamp(17px,3vw,22px); font-weight:900; padding:11px 15px; min-height:49px; margin:5px 0 7px; border-radius:12px; background:#343c43; border:2px solid #59616a; color:#f0d7a7; width:100%; max-width:calc(var(--unit) * 9); transition:background .22s,border-color .22s; }
+    .status.turn-red { background:#583037; border-color:#e37676; color:#fff2dd; }
+    .status.turn-black { background:#454640; border-color:#e1b978; color:#fff3dc; }
+    .status.turn-mine { box-shadow:0 0 0 2px #ffd78c33,0 0 18px #eeb96733; animation:turnGlow 1.7s ease-in-out infinite alternate; }
+    .status .status-sub { display:block; font-size:12px; font-weight:600; color:#e9ded0; margin-top:3px; }
+    @keyframes turnGlow { from { box-shadow:0 0 0 2px #f2c57b18; } to { box-shadow:0 0 0 3px #f2c57b75,0 0 20px #f2c57b33; } }
+
     .board { position:relative; width:calc(var(--unit) * 9); height:calc(var(--unit) * 10); max-width:100%; background:#e7c388; border:3px solid var(--line); border-radius:4px; box-shadow:0 10px 26px #0008; margin:6px auto; }
     .board svg { width:100%; height:100%; position:absolute; inset:0; pointer-events:none; }
     .target { position:absolute; width:10.7%; height:9.6%; transform:translate(-50%,-50%); z-index:1; cursor:pointer; }
     .piece { position:absolute; width:9.4%; height:8.5%; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; border-radius:50%; background:radial-gradient(circle at 33% 29%,#fff9e7,#d9ad77); color:#25211d; font-weight:900; font-size:clamp(16px,calc(var(--unit) * .48),24px); box-shadow:1px 3px 5px #0007,inset 0 0 0 2px #cca06a; z-index:2; cursor:pointer; user-select:none; }
     .piece.red { color:var(--red); border:1px solid var(--red); } .piece.black { color:#25272a; border:1px solid #25272a; }
     .piece.selected { transform:translate(-50%,-50%) scale(1.13); outline:3px solid #ffeb46; z-index:5; }
+    .piece.turn-piece { box-shadow:1px 3px 6px #0007,inset 0 0 0 2px #dbb17a,0 0 0 2px #f0d59a6b; }
+    .piece.wait-piece { filter:brightness(.81) saturate(.75); }
+    .piece.selected { filter:none; box-shadow:0 0 13px #ffe36a; }
+
     .dot { position:absolute; width:4%; height:3.6%; background:#27a263c9; border-radius:50%; box-shadow:0 0 9px #078a4e; transform:translate(-50%,-50%); pointer-events:none; z-index:3; }
     .dot.capture { width:10%; height:9%; background:transparent; border:3px dashed #da3838; }
     .last { position:absolute; width:9.8%; height:8.8%; border:2px dashed #ef9321; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:1; }
@@ -113,6 +128,14 @@
     .notice { background:#5b4728; border:1px solid #b78b45; border-radius:10px; padding:12px; margin:10px 0; font-size:14px; line-height:1.6; }
     .notice .inline { justify-content:center; margin-top:9px; }
     #voiceStatus { color:#acdbb9; font-size:12px; min-height:18px; }
+    .quick-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .quick-grid button { text-align:center; padding:10px 5px; background:#45505a; border:1px solid #69717a; font-size:13px; }
+    .quick-grid button:hover:not(:disabled) { background:#92653d; border-color:#d9a45b; }
+    .quick-bubble { position:absolute; top:32%; left:50%; transform:translate(-50%,-50%); z-index:12; max-width:90%; min-width:150px; border-radius:16px; padding:13px 18px; text-align:center; background:#29353bea; color:#fff8e4; border:2px solid #f4ce87; box-shadow:0 8px 25px #0009; pointer-events:none; animation:quickAppear .22s ease-out; }
+    .quick-bubble strong { display:block; font-size:12px; color:#f4ca8c; margin-bottom:5px; }
+    .quick-bubble span { font-size:clamp(19px,4vw,28px); font-weight:900; white-space:nowrap; }
+    @keyframes quickAppear { from {opacity:0;transform:translate(-50%,-35%) scale(.85);} to {opacity:1;transform:translate(-50%,-50%) scale(1);} }
+
     .overlay { position:fixed; inset:0; z-index:100; background:#000b; display:flex; align-items:center; justify-content:center; padding:16px; }
     .dialog { background:#30363d; border:2px solid #b87b38; border-radius:16px; width:min(100%,400px); box-shadow:0 15px 50px #000a; padding:23px; }
     .dialog h2 { margin:0 0 12px; }.dialog p { line-height:1.6; color:#e4e1dc; }
@@ -128,7 +151,7 @@
 <body>
 <div class="shell">
   <h1>♟️ 同學象棋室</h1>
-  <p class="subtitle">V2.1 · 好友對弈 · 同學觀戰 · 輪流挑戰</p>
+  <p class="subtitle">V2.2 · 好友對弈 · 同學觀戰 · 輪流挑戰</p>
   <div id="welcome" class="welcome card">
     <h2 id="welcomeTitle">一起下象棋吧！</h2>
     <p class="hint" id="welcomeHelp">建立房間後，分享連結或 QR Code 邀請同學。</p>
@@ -162,6 +185,7 @@
           <button id="drawBtn">🤝 提和</button>
           <button id="resignBtn" class="danger">🏳 認輸</button>
           <button id="voiceBtn">🎙️ 開啟語音</button>
+          <button id="unmuteAudioBtn" class="subtle hide">🔊 點此播放對方聲音</button>
         </div>
         <div id="voiceStatus" role="status"></div>
         <div id="topTaken" class="grave"></div>
@@ -178,11 +202,17 @@
             <text x="325" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">漢 界</text>
           </svg>
           <div id="layer"></div>
+          <div id="quickBubble" class="quick-bubble hide" aria-live="polite"></div>
         </div>
         <div id="bottomTaken" class="grave"></div>
       </div>
 
       <div class="rightbar">
+        <section class="card" id="quickPanel">
+          <h3>💬 快捷喊話</h3>
+          <div id="quickGrid" class="quick-grid"></div>
+          <p class="hint" style="margin:9px 0 0">僅對弈雙方可發送，最多每 3 秒一次。</p>
+        </section>
         <section class="card"><h3>👀 觀戰與候補 <span id="viewerCount" class="pill">0</span></h3>
           <div id="viewerList" class="hint">尚無觀戰者</div>
           <button id="challengeBtn" class="primary hide" style="width:100%;margin-top:8px">🙋 我要挑戰下一局</button>
@@ -334,7 +364,17 @@
   let picked=null,possibles=[],flipped=false,joining=false,finalizing=false,sessionId='';
   let activePresenceRef=null,activeDisconnectJob=null;
   const offlineSince=new Map();
-  let localStream=null,peerConn=null,voiceUnsubs=[],voiceEnabled=false,voiceKey='';
+  let localStream=null,peerConn=null,voiceUnsubs=[],voiceEnabled=false,voiceStopping=false;
+  let voiceActivation='',voiceGeneration=0,voiceSide='',voiceRound=-1,voiceRoomId='',voicePair='';
+  let voiceActiveRef=null,voiceDisconnectJob=null,voiceActiveUnsub=null;
+  let quickSeenInitialized=false,lastQuickId='',quickTimer=null,lastQuickSent=0;
+  const quickPhrases=[
+    ['slow','⏳ 想太久啦～'],['hurry','⚡ 快點啦！'],
+    ['wow','🔥 太猛了！'],['surprise','😲 沒想到吧！'],
+    ['nice','👏 好棋！'],['scary','😱 這步有點狠！'],
+    ['thinking','🤔 讓我想想…'],['again','😎 再來一局！']
+  ];
+  const quickPhraseMap=Object.fromEntries(quickPhrases);
   const params=new URLSearchParams(location.search);
   const urlCode=(params.get('room')||'').trim().toUpperCase();
   if(urlCode && /^[A-Z0-9]{5,12}$/.test(urlCode)) {
@@ -400,6 +440,7 @@
       name:nickname,joinedAt:snapshot.val().members?.[uid]?.joinedAt||Date.now()
     });
     roomId=id;roomRef=candidateRef;gameRef=ref(db,`chessV2/${id}/game`);
+    quickSeenInitialized=false;lastQuickId='';hideQuickBubble();
     sessionId=randomCode();
     const presenceRef=ref(db,`chessV2/${id}/presence/${uid}/${sessionId}`);
     const disconnectJob=onDisconnect(presenceRef);
@@ -414,12 +455,24 @@
       room=snap.val();
       if(!room) {showToast('房間已不存在。');return;}
       const oldSide=seatOf(previous),newSide=seatOf(room);
-      if(voiceEnabled&&(oldSide!==newSide||previous?.seats?.red!==room.seats?.red||previous?.seats?.black!==room.seats?.black||previous?.game?.round!==room.game?.round))stopVoice();
+      if(voiceEnabled&&(oldSide!==newSide||previous?.seats?.red!==room.seats?.red||previous?.seats?.black!==room.seats?.black||previous?.game?.round!==room.game?.round))void stopVoice();
+      checkQuickMessage(room.voice?.quick);
       if(room.invite?.status==='accepted'&&isHost()&&!finalizing)finalizeInvite();
       if(room.invite?.status==='declined'&&isHost())clearDeclinedInvite();
       if(previous?.game?.round!==room.game?.round) {picked=null;possibles=[];flipped=newSide==='black';$('resultModal').classList.add('hide');}
       if(previous?.game?.status!=='finished'&&room.game?.status==='finished')showResult();
-      renderAll();
+      // 語音 ICE 訊號可能在一秒內寫入多次；不要因此重畫整個棋盤。
+      const before=previous&&JSON.stringify({g:previous.game,s:previous.seats,m:previous.members,p:previous.presence,
+        i:previous.invite,q:previous.requests,meta:previous.meta});
+      const after=JSON.stringify({g:room.game,s:room.seats,m:room.members,p:room.presence,
+        i:room.invite,q:room.requests,meta:room.meta});
+      if(before!==after) {
+        if(previous?.game?.status==='playing'&&room.game?.moveNo>previous.game.moveNo) {
+          const g=room.game;
+          if(g.status==='playing')playSound(inCheck(g.turn,g.board)?'check':g.lastMove?.capture?'eat':'move');
+        }
+        renderAll();
+      }
     },error=>showToast(friendlyError(error)));
   }
   function getRoomUrl() {const u=new URL(location.href);u.searchParams.set('room',roomId);u.hash='';return u.toString();}
@@ -428,7 +481,8 @@
     const currentSide=seatOf(),wasHost=isHost(),leavingId=roomId;
     if(currentSide&&room?.game?.status==='playing'&&!confirm('對局還在進行中，離開後棋盤會保留，你的座位將顯示離線。確定離開嗎？'))return;
     if(wasHost&&!currentSide&&!confirm('你是房主。離開後房間仍會保留，但需要房主回來才能安排新局。確定離開嗎？'))return;
-    if(voiceEnabled)stopVoice();
+    if(voiceEnabled)void stopVoice();
+    hideQuickBubble();quickSeenInitialized=false;lastQuickId='';
     if(unsubscribe){unsubscribe();unsubscribe=null;}
     const presenceToRemove=activePresenceRef,disconnectToCancel=activeDisconnectJob;
     activePresenceRef=null;activeDisconnectJob=null;
@@ -477,6 +531,8 @@
     const box=$(id),idOfPlayer=room.seats?.[side];box.replaceChildren();
     const head=el('div','phead'),name=el('strong','',idOfPlayer?myName(idOfPlayer):'等待挑戰者');
     const badge=el('span','pill '+side,sideName(side));head.append(name,badge);box.append(head);
+    box.classList.toggle('turn-active',room.game.status==='playing'&&room.game.turn===side);
+    box.classList.toggle('turn-red',side==='red');box.classList.toggle('turn-black',side==='black');
     const line=el('small','',idOfPlayer?(online(idOfPlayer)?'🟢 在線':'⚪ 暫時離線')+'　'+(idOfPlayer===room.meta.hostUid?'👑 房主':''):'尚無對手');
     box.append(line);
   }
@@ -491,7 +547,7 @@
     for(let r=0;r<10;r++)for(let c=0;c<9;c++) {
       const target=el('div','target');position(target,r,c);target.onclick=()=>cellClick(r,c);layer.append(target);
       const p=b[r]?.[c];if(!p)continue;
-      const piece=el('div','piece '+pieceSide(p)+(picked&&picked[0]===r&&picked[1]===c?' selected':''),names[p]||'?');
+      const piece=el('div','piece '+pieceSide(p)+(g.status==='playing'?(pieceSide(p)===g.turn?' turn-piece':' wait-piece'):'')+(picked&&picked[0]===r&&picked[1]===c?' selected':''),names[p]||'?');
       position(piece,r,c);piece.onclick=e=>{e.stopPropagation();cellClick(r,c);};layer.append(piece);
     }
     if(picked && seatOf()===g.turn&&g.status==='playing')for(const [r,c] of possibles) {
@@ -510,16 +566,26 @@
   function renderControls() {
     const g=room.game,side=seatOf(),playing=g.status==='playing';
     const who=sideName(g.turn),currentName=myName(room.seats?.[g.turn]);
-    if(g.status==='waiting')$('statusBar').textContent='等待房主邀請對手開始第一局';
-    else if(g.status==='finished')$('statusBar').textContent=g.winner==='draw'?'🤝 和棋 · '+g.reason:'🏆 '+myName(room.seats?.[g.winner])+'獲勝 · '+g.reason;
-    else $('statusBar').textContent=(inCheck(g.turn,g.board)?(g.rulesMode==='relaxed'?'⚠️ 將軍（可不應將）！ ':'⚠️ 將軍！ '):'')+'輪到 '+currentName+'（'+who+'）'+(side===g.turn?' · 請走棋':'');
+    const status=$('statusBar');status.classList.toggle('turn-red',playing&&g.turn==='red');
+    status.classList.toggle('turn-black',playing&&g.turn==='black');
+    status.classList.toggle('turn-mine',playing&&side===g.turn);
+    status.replaceChildren();
+    if(g.status==='waiting')status.textContent='等待房主邀請對手開始第一局';
+    else if(g.status==='finished')status.textContent=g.winner==='draw'?'🤝 和棋 · '+g.reason:'🏆 '+myName(room.seats?.[g.winner])+'獲勝 · '+g.reason;
+    else {
+      status.append(el('span','',g.turn==='red'?'🔴 現在是紅方下':'⚫ 現在是黑方下'));
+      const sub=(inCheck(g.turn,g.board)?'⚠️ 將軍！'+(g.rulesMode==='relaxed'?' 可選擇不應將 · ':' · '):'')+
+        currentName+(side===g.turn?'（換你了！）':side?'（等待對方）':'（觀戰中）');
+      status.append(el('span','status-sub',sub));
+    }
     const chances=g.undoChances?.[side]??0;
     $('undoBtn').textContent='↩ 悔棋（'+chances+'）';
     $('undoBtn').disabled=!playing||!side||chances===0||!g.history?.length||g.lastMove?.side!==side||!!room.requests?.undo;
     $('drawBtn').disabled=!playing||!side||!!room.requests?.draw;
     $('resignBtn').disabled=!playing||!side;
-    $('voiceBtn').disabled=!side;
-    $('voiceBtn').textContent=voiceEnabled?'🔴 關閉語音':'🎙️ 開啟語音';
+    $('voiceBtn').disabled=!side||voiceStopping;
+    $('voiceBtn').textContent=voiceStopping?'正在關閉語音…':voiceEnabled?'🔴 關閉語音':'🎙️ 開啟語音';
+    for(const b of $('quickGrid').querySelectorAll('button'))b.disabled=!playing||!side||Date.now()-lastQuickSent<3000;
     const awaySide=other(side||'red'),opponent=room.seats?.[awaySide];
     const duration=isHost()&&playing&&side&&opponent?offlineDuration(opponent):0;
     $('abandonBtn').classList.toggle('hide',!isHost()||!playing||!side||!opponent||duration<10*60*1000);
@@ -613,7 +679,7 @@
       },{applyLocally:false});
       if(!result.committed) {showToast('盤面已更新，請依最新局面重新落子。');return;}
       const next=result.snapshot.val();
-      playSound(next.status==='finished'?'win':inCheck(next.turn,next.board)?'check':next.lastMove?.capture?'eat':'move');
+      // 落子音效由棋局同步監聽統一觸發，讓雙方都有聲音且避免自己重複播放。
       if(room.requests?.undo)remove(ref(db,`chessV2/${roomId}/requests/undo`)).catch(()=>{});
       if(room.requests?.draw)remove(ref(db,`chessV2/${roomId}/requests/draw`)).catch(()=>{});
     }catch(e){showToast(friendlyError(e));}
@@ -738,72 +804,230 @@
   $('qrClose').onclick=()=>$('qrModal').classList.add('hide');
   $('qrModal').addEventListener('click',e=>{if(e.target===$('qrModal'))$('qrClose').click();});
 
+  // 棋子音效：Web Audio 自製低音量木質敲擊，不用刺耳的鋸齒波。
+  let audioContext=null,woodBuffer=null;
+  function getAudio() {
+    const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return null;
+    if(!audioContext)audioContext=new Audio();
+    if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});
+    if(!woodBuffer) {
+      const length=Math.floor(audioContext.sampleRate*.115);
+      woodBuffer=audioContext.createBuffer(1,length,audioContext.sampleRate);
+      const samples=woodBuffer.getChannelData(0);
+      for(let i=0;i<length;i++)samples[i]=(Math.random()*2-1)*Math.exp(-i/(length*.16));
+    }
+    return audioContext;
+  }
+  function woodTap(ctx,at,volume=0.11,pitch=215) {
+    const noise=ctx.createBufferSource(),low=ctx.createBiquadFilter(),env=ctx.createGain();
+    noise.buffer=woodBuffer;low.type='bandpass';low.frequency.value=850;low.Q.value=.62;
+    noise.connect(low);low.connect(env);env.connect(ctx.destination);
+    env.gain.setValueAtTime(.0001,at);env.gain.exponentialRampToValueAtTime(volume,at+.003);
+    env.gain.exponentialRampToValueAtTime(.0001,at+.086);
+    noise.start(at);noise.stop(at+.11);
+    const osc=ctx.createOscillator(),tone=ctx.createGain();osc.type='sine';
+    osc.frequency.setValueAtTime(pitch,at);osc.frequency.exponentialRampToValueAtTime(pitch*.56,at+.09);
+    tone.gain.setValueAtTime(.0001,at);tone.gain.exponentialRampToValueAtTime(volume*.48,at+.002);
+    tone.gain.exponentialRampToValueAtTime(.0001,at+.092);
+    osc.connect(tone);tone.connect(ctx.destination);osc.start(at);osc.stop(at+.1);
+  }
   function playSound(type) {
     try {
-      const ctx=new (window.AudioContext||window.webkitAudioContext)(),osc=ctx.createOscillator(),gain=ctx.createGain();
-      osc.connect(gain);gain.connect(ctx.destination);
-      const settings={move:[320,105,.07],eat:[440,140,.13],check:[620,310,.19],win:[520,260,.36]}[type]||[320,110,.08];
-      osc.type=type==='check'?'square':type==='eat'?'sawtooth':'triangle';
-      osc.frequency.setValueAtTime(settings[0],ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(settings[1],ctx.currentTime+settings[2]);
-      gain.gain.setValueAtTime(.25,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+settings[2]);
-      osc.start();osc.stop(ctx.currentTime+settings[2]);osc.onended=()=>ctx.close();
-    }catch(e){}
+      const ctx=getAudio();if(!ctx)return;
+      const t=ctx.currentTime+.005;
+      if(type==='eat') {woodTap(ctx,t,.13,235);woodTap(ctx,t+.095,.09,170);}
+      else if(type==='check') {woodTap(ctx,t,.10,270);woodTap(ctx,t+.115,.075,325);}
+      else if(type==='win') {woodTap(ctx,t,.11,280);woodTap(ctx,t+.15,.11,345);woodTap(ctx,t+.30,.095,430);}
+      else woodTap(ctx,t,.085,215);
+    }catch(e){/* 使用者禁止聲音時仍可正常下棋 */}
   }
 
-  // 僅紅黑方能啟用雙人語音。每一局以房號及雙方 uid 區分訊號，避免觀戰者介入。
-  const rtcConfig={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
-  $('voiceBtn').onclick=async()=>{
-    if(voiceEnabled){stopVoice();return;}
-    const side=seatOf();if(!side||!room.seats?.[other(side)])return;
-    try {
-      localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});voiceEnabled=true;
-      voiceKey='r'+room.game.round;renderControls();$('voiceStatus').textContent='正在建立雙人語音…';
-      await startVoice(side);
-    }catch(e){stopVoice();$('voiceStatus').textContent='無法開啟語音。請確認使用 HTTPS 並允許麥克風。';}
-  };
-  function stopVoice() {
-    for(const unsub of voiceUnsubs)try{unsub();}catch(e){}voiceUnsubs=[];
-    if(peerConn){peerConn.ontrack=null;peerConn.onicecandidate=null;peerConn.close();peerConn=null;}
-    if(localStream){localStream.getTracks().forEach(track=>track.stop());localStream=null;}
-    $('remoteAudio').srcObject=null;voiceEnabled=false;voiceKey='';
-    if(room)renderControls();$('voiceStatus').textContent='語音已關閉';
+  // 固定短句互動：沿用現有 chessV2/$room/voice 權限，不需另加 Firebase Rules。
+  // 每間房只保存最後一則，不會累積大量訊息。
+  function hideQuickBubble() {
+    if(quickTimer){clearTimeout(quickTimer);quickTimer=null;}
+    $('quickBubble').classList.add('hide');$('quickBubble').replaceChildren();
   }
-  async function startVoice(side) {
-    const key=voiceKey,base=`chessV2/${roomId}/voice/${key}`,remote=other(side);
+  function checkQuickMessage(message) {
+    if(!quickSeenInitialized) {quickSeenInitialized=true;lastQuickId=message?.id||'';return;}
+    if(!message?.id||message.id===lastQuickId)return;
+    lastQuickId=message.id;
+    if(!quickPhraseMap[message.phrase]||Date.now()-Number(message.at)>15000)return;
+    hideQuickBubble();
+    const bubble=$('quickBubble'),name=room?.members?.[message.uid]?.name||'同學';
+    bubble.append(el('strong','',name+' 說：'),el('span','',quickPhraseMap[message.phrase]));
+    bubble.classList.remove('hide');
+    quickTimer=setTimeout(hideQuickBubble,4200);
+  }
+  for(const [key,label] of quickPhrases) {
+    const b=el('button','',label);b.type='button';b.dataset.phrase=key;
+    b.onclick=async()=>{
+      if(!seatOf()||room?.game?.status!=='playing'||Date.now()-lastQuickSent<3000)return;
+      lastQuickSent=Date.now();renderControls();
+      // 點擊即顯示自己的話，其他用戶透過 Firebase 得知。
+      const message={id:randomCode()+randomCode(),uid,phrase:key,at:Date.now(),round:room.game.round};
+      try {
+        await set(ref(db,`chessV2/${roomId}/voice/quick`),message);
+      } catch(e){lastQuickSent=0;showToast('喊話發送失敗：'+friendlyError(e));}
+      setTimeout(()=>{if(room)renderControls();},3000);
+    };
+    $('quickGrid').append(b);
+  }
+
+  // WebRTC 重新設計：每次雙方開麥，都產生全新會話身分與 SDP/ICE 空間。
+  // 不再沿用前一通的 offer/answer；一方關閉後，另一方可留在等待狀態。
+  const rtcConfig={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+  const voiceRoot=(id,round)=>`chessV2/${id}/voice/live/r${round}`;
+  const currentVoice=(generation)=>voiceEnabled&&voiceGeneration===generation&&roomId===voiceRoomId;
+  function voiceStatus(t) {$('voiceStatus').textContent=t;}
+  function closePeer() {
+    for(const u of voiceUnsubs)try{u();}catch(e){}voiceUnsubs=[];
+    const pc=peerConn;peerConn=null;voicePair='';
+    if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.onconnectionstatechange=null;pc.close();}
+    const audio=$('remoteAudio');audio.pause();audio.srcObject=null;
+    $('unmuteAudioBtn').classList.add('hide');
+  }
+  $('unmuteAudioBtn').onclick=async()=>{
+    try {await $('remoteAudio').play();$('unmuteAudioBtn').classList.add('hide');voiceStatus('正在播放對方聲音（等待語音連線）');}
+    catch(e){voiceStatus('瀏覽器尚未允許播放，請再點一次播放按鈕。');}
+  };
+  function tryRemotePlayback() {
+    const audio=$('remoteAudio');audio.muted=false;audio.volume=1;
+    audio.play().then(()=>$('unmuteAudioBtn').classList.add('hide')).catch(()=>{
+      $('unmuteAudioBtn').classList.remove('hide');voiceStatus('已收到對方語音，請點「播放對方聲音」。');
+    });
+  }
+  async function stopVoice() {
+    if(voiceStopping)return;
+    const sid=voiceActivation,active=voiceActiveRef,disconnect=voiceDisconnectJob;
+    const pair=voicePair,base=voiceRoot(voiceRoomId,voiceRound);
+    ++voiceGeneration;voiceEnabled=false;voiceStopping=true;
+    voiceActivation='';voiceActiveRef=null;voiceDisconnectJob=null;
+    if(voiceActiveUnsub){voiceActiveUnsub();voiceActiveUnsub=null;}
+    closePeer();
+    if(localStream){localStream.getTracks().forEach(track=>track.stop());localStream=null;}
+    voiceStatus('語音已關閉');if(room)renderControls();
+    try {
+      if(disconnect)await disconnect.cancel();
+      if(active&&sid)await runTransaction(active,current=>current?.sid===sid?null:undefined,{applyLocally:false});
+      // 已結束的協商資料可以清除；目前其他用戶的新協商不受影響。
+      if(pair)await remove(ref(db,`${base}/sessions/${pair}`)).catch(()=>{});
+    }catch(e){voiceStatus('語音已關閉，遠端狀態同步稍有延遲。');}
+    finally {voiceStopping=false;if(room)renderControls();}
+  }
+  $('voiceBtn').onclick=async()=>{
+    if(voiceStopping)return;
+    if(voiceEnabled) {await stopVoice();return;}
+    const side=seatOf();if(!side||!room?.seats?.[other(side)])return;
+    const generation=++voiceGeneration;
+    voiceEnabled=true;voiceSide=side;voiceRound=room.game.round;voiceRoomId=roomId;
+    voiceActivation=randomCode()+randomCode();
+    voiceStatus('正在取得麥克風權限…');renderControls();
+    try {
+      const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+      if(!currentVoice(generation)){stream.getTracks().forEach(t=>t.stop());return;}
+      localStream=stream;
+      const active=ref(db,`${voiceRoot(voiceRoomId,voiceRound)}/active/${side}`);
+      voiceActiveRef=active;
+      voiceDisconnectJob=onDisconnect(active);
+      await voiceDisconnectJob.remove();
+      if(!currentVoice(generation))return;
+      await set(active,{sid:voiceActivation,uid,at:Date.now()});
+      if(!currentVoice(generation))return;
+      voiceActiveUnsub=onValue(ref(db,`${voiceRoot(voiceRoomId,voiceRound)}/active`),snap=>{
+        if(!currentVoice(generation))return;
+        const both=snap.val()||{};
+        if(both[side]?.sid!==voiceActivation) {
+          closePeer();voiceStatus('此席位的語音已由另一個分頁啟用，請關閉後再試。');return;
+        }
+        const otherSide=other(side),remote=both[otherSide];
+        if(!remote?.sid||remote.uid!==room?.seats?.[otherSide]) {
+          if(peerConn)closePeer();
+          voiceStatus('🎙️ 麥克風已開啟，等待對方開啟語音…');return;
+        }
+        const redSid=both.red?.sid,blackSid=both.black?.sid;
+        if(!redSid||!blackSid)return;
+        const pair=`${redSid}_${blackSid}`;
+        if(pair===voicePair)return;
+        closePeer();voicePair=pair;
+        void connectVoicePair(generation,side,pair);
+      },e=>voiceStatus('語音狀態同步失敗：'+friendlyError(e)));
+      voiceStatus('🎙️ 麥克風已開啟，等待對方…');
+    }catch(e){
+      if(currentVoice(generation)) {
+        await stopVoice();
+        voiceStatus('無法開啟語音：請確認 HTTPS、麥克風權限及網路。');
+      }
+    }
+  };
+  async function connectVoicePair(generation,side,pair) {
+    if(!currentVoice(generation)||voicePair!==pair||!localStream)return;
+    const base=`${voiceRoot(voiceRoomId,voiceRound)}/sessions/${pair}`;
     const pc=new RTCPeerConnection(rtcConfig);peerConn=pc;
     localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
-    pc.ontrack=e=>{$('remoteAudio').srcObject=e.streams[0];$('voiceStatus').textContent='🟢 雙人語音已連線';};
-    pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'||pc.connectionState==='disconnected')$('voiceStatus').textContent='語音連線中斷，可關閉後重試。';};
-    const localCandidates=ref(db,`${base}/candidates_${side}`),remoteCandidates=ref(db,`${base}/candidates_${remote}`);
-    // 紅方重建訊號，清除上一通同局的過期資料；不碰棋局與其他玩家資料。
-    if(side==='red') await remove(ref(db,base));
-    pc.onicecandidate=e=>{if(e.candidate)push(localCandidates,e.candidate.toJSON()).catch(()=>{});};
+    pc.ontrack=e=>{
+      if(!currentVoice(generation)||peerConn!==pc)return;
+      const audio=$('remoteAudio');
+      audio.srcObject=e.streams?.[0]||new MediaStream([e.track]);
+      voiceStatus('正在連接對方音訊…');tryRemotePlayback();
+    };
+    pc.onconnectionstatechange=()=>{
+      if(!currentVoice(generation)||peerConn!==pc)return;
+      if(pc.connectionState==='connected')voiceStatus('🟢 雙人語音已連線');
+      else if(pc.connectionState==='failed')voiceStatus('⚠️ 網路無法建立語音，請雙方關閉後再開啟。');
+      else if(pc.connectionState==='disconnected')voiceStatus('語音暫時中斷，正在等待網路恢復…');
+    };
+    const localCandidates=ref(db,`${base}/candidates_${side}`),remoteCandidates=ref(db,`${base}/candidates_${other(side)}`);
+    pc.onicecandidate=e=>{
+      if(e.candidate&&currentVoice(generation)&&voicePair===pair&&peerConn===pc)
+        push(localCandidates,e.candidate.toJSON()).catch(()=>{});
+    };
     const pending=[];
-    const flush=async()=>{if(!pc.remoteDescription)return;while(pending.length)try{await pc.addIceCandidate(pending.shift());}catch(e){}};
+    let applyingRemote=false;
+    const flush=async()=>{
+      while(pending.length&&pc.remoteDescription&&pc.signalingState!=='closed') {
+        try {await pc.addIceCandidate(pending.shift());}catch(e){}
+      }
+    };
     voiceUnsubs.push(onChildAdded(remoteCandidates,snap=>{
-      const candidate=new RTCIceCandidate(snap.val());
-      if(!pc.remoteDescription)pending.push(candidate);else pc.addIceCandidate(candidate).catch(()=>{});
+      if(!currentVoice(generation)||voicePair!==pair||peerConn!==pc)return;
+      const value=snap.val();if(!value)return;
+      const candidate=new RTCIceCandidate(value);
+      if(!pc.remoteDescription||applyingRemote)pending.push(candidate);
+      else pc.addIceCandidate(candidate).catch(()=>{});
     }));
-    if(side==='red') {
-      const offer=await pc.createOffer();await pc.setLocalDescription(offer);await set(ref(db,`${base}/offer`),offer.toJSON?offer.toJSON():{type:offer.type,sdp:offer.sdp});
-      voiceUnsubs.push(onValue(ref(db,`${base}/answer`),async snap=>{
-        if(snap.exists()&&!pc.currentRemoteDescription&&pc.signalingState!=='closed'){
-          try{await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));await flush();}catch(e){}
-        }
-      }));
-    } else {
-      voiceUnsubs.push(onValue(ref(db,`${base}/offer`),async snap=>{
-        if(snap.exists()&&!pc.currentRemoteDescription&&pc.signalingState!=='closed'){
-          try{
+    try {
+      if(side==='red') {
+        voiceUnsubs.push(onValue(ref(db,`${base}/answer`),async snap=>{
+          if(!snap.exists()||!currentVoice(generation)||voicePair!==pair||peerConn!==pc||applyingRemote||pc.remoteDescription)return;
+          applyingRemote=true;
+          try {await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));await flush();}
+          catch(e){voiceStatus('接收對方語音回覆失敗，請關閉後重試。');}
+          finally {applyingRemote=false;}
+        }));
+        const offer=await pc.createOffer();
+        if(!currentVoice(generation)||voicePair!==pair||peerConn!==pc)return;
+        await pc.setLocalDescription(offer);
+        if(!currentVoice(generation)||voicePair!==pair||peerConn!==pc)return;
+        await set(ref(db,`${base}/offer`),{type:offer.type,sdp:offer.sdp});
+      } else {
+        voiceUnsubs.push(onValue(ref(db,`${base}/offer`),async snap=>{
+          if(!snap.exists()||!currentVoice(generation)||voicePair!==pair||peerConn!==pc||applyingRemote||pc.remoteDescription)return;
+          applyingRemote=true;
+          try {
             await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));await flush();
+            if(!currentVoice(generation)||voicePair!==pair||peerConn!==pc)return;
             const answer=await pc.createAnswer();await pc.setLocalDescription(answer);
-            await set(ref(db,`${base}/answer`),answer.toJSON?answer.toJSON():{type:answer.type,sdp:answer.sdp});
-          }catch(e){}
-        }
-      }));
-    }
+            if(!currentVoice(generation)||voicePair!==pair||peerConn!==pc)return;
+            await set(ref(db,`${base}/answer`),{type:answer.type,sdp:answer.sdp});
+          }catch(e){voiceStatus('語音協商失敗，請關閉後重試。');}
+          finally {applyingRemote=false;}
+        }));
+      }
+    }catch(e){if(currentVoice(generation)&&voicePair===pair)voiceStatus('語音建立失敗，請關閉後重試。');}
   }
-  window.addEventListener('pagehide',()=>{if(voiceEnabled)stopVoice();});
+  window.addEventListener('pagehide',()=>{if(voiceEnabled)void stopVoice();});
+
 </script>
 </body>
 </html>
