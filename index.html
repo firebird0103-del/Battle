@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#23272a">
-  <title>同學象棋室 V2.2</title>
+  <title>同學棋藝室 V2.3｜象棋・五子棋</title>
   <!--
     使用前請在 Firebase 專案 battle-f41ad 啟用 Authentication > Anonymous，
     並在 Realtime Database Rules 設定依匿名 uid 與房間席位控管的讀寫權限。
@@ -74,6 +74,13 @@
     .welcome input { width:100%; }
     .welcome .actions { display:flex; gap:9px; margin-top:18px; }
     .welcome .actions button { flex:1; min-height:50px; }
+    .game-choice { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0 12px; }
+    .game-option { background:#242d34; border:2px solid #555c64; border-radius:13px; padding:15px 8px 13px; display:flex; flex-direction:column; align-items:center; gap:5px; color:#f0f0f0; transition:background .2s,border-color .2s,transform .2s; }
+    .game-option.selected { background:#44382a; border-color:#e8ae59; box-shadow:0 0 0 2px #edbd7440; }
+    .game-option strong { font-size:20px; }.game-option small { font-size:11px; color:#c0c4c7; line-height:1.5; }
+    .game-icon { display:flex; align-items:center; justify-content:center; border-radius:50%; width:42px; height:42px; background:#e9cd9e; color:#b52d2d; font-size:24px; font-weight:900; border:2px solid #cb9b56; }
+    .game-icon.stone-icon { background:radial-gradient(circle at 34% 28%,#555,#050505 70%);color:#fff0;font-size:22px;border:2px solid #b6a188; box-shadow:1px 3px 7px #0008; }
+    .game-option:focus-visible { outline:2px solid #f5d6a2; outline-offset:3px; }
     .hint { color:var(--muted); font-size:12px; line-height:1.6; }
     .error { color:#ff9c93; }
     .room-top { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
@@ -92,6 +99,7 @@
 
     .pill { border-radius:99px; font-size:11px; padding:3px 8px; background:#5c6570; white-space:nowrap; }
     .pill.red { background:#8c3534; } .pill.black { background:#51565c; } .pill.host { color:#30200d; background:#edbc70; }
+    .pill.white { background:#e5dfce; color:#262523; }.pill.stone-black { background:#181b1f; border:1px solid #aaa; }
     .game-layout { display:grid; grid-template-columns:minmax(0,1fr) 265px; align-items:start; gap:14px; }
     .board-side { min-width:0; display:flex; flex-direction:column; align-items:center; }
     .controls { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin:7px auto; }
@@ -99,12 +107,26 @@
     .status { font-size:clamp(17px,3vw,22px); font-weight:900; padding:11px 15px; min-height:49px; margin:5px 0 7px; border-radius:12px; background:#343c43; border:2px solid #59616a; color:#f0d7a7; width:100%; max-width:calc(var(--unit) * 9); transition:background .22s,border-color .22s; }
     .status.turn-red { background:#583037; border-color:#e37676; color:#fff2dd; }
     .status.turn-black { background:#454640; border-color:#e1b978; color:#fff3dc; }
+    .status.turn-white { background:#5c6060; border-color:#e6e8e7; color:#fff; }
     .status.turn-mine { box-shadow:0 0 0 2px #ffd78c33,0 0 18px #eeb96733; animation:turnGlow 1.7s ease-in-out infinite alternate; }
     .status .status-sub { display:block; font-size:12px; font-weight:600; color:#e9ded0; margin-top:3px; }
     @keyframes turnGlow { from { box-shadow:0 0 0 2px #f2c57b18; } to { box-shadow:0 0 0 3px #f2c57b75,0 0 20px #f2c57b33; } }
 
     .board { position:relative; width:calc(var(--unit) * 9); height:calc(var(--unit) * 10); max-width:100%; background:#e7c388; border:3px solid var(--line); border-radius:4px; box-shadow:0 10px 26px #0008; margin:6px auto; }
     .board svg { width:100%; height:100%; position:absolute; inset:0; pointer-events:none; }
+    .board.gomoku { width:min(100%,540px);height:auto;aspect-ratio:1; background:#d7ae73; border:3px solid #765033; border-radius:8px; box-shadow:0 12px 30px #0009,inset 0 0 20px #88531a33; }
+    .board.gomoku .target { width:6.2%;height:6.2%; z-index:3; touch-action:manipulation; }
+    .g-stone { position:absolute; width:5.45%; height:5.45%; border-radius:50%; transform:translate(-50%,-50%); z-index:2; pointer-events:none; box-shadow:2px 3px 5px #0006; }
+    .g-stone.black { background:radial-gradient(circle at 30% 25%,#65676b 0%,#232527 32%,#060708 82%);border:1px solid #151515; }
+    .g-stone.white { background:radial-gradient(circle at 29% 25%,#fff 0%,#f5f1e9 40%,#c4bcb2 100%);border:1px solid #a1998b; }
+    .g-stone.newest { outline:2px solid #f9a731; outline-offset:2px; }
+    .g-stone.winner { box-shadow:0 0 0 3px #e99526,0 0 15px 4px #ffe19d; animation:stoneWin 1.2s ease-in-out infinite alternate; }
+    @keyframes stoneWin { to {box-shadow:0 0 0 4px #ffe17c,0 0 17px 5px #ffe17c;} }
+    .g-target-preview { position:absolute; width:5.2%;height:5.2%; border-radius:50%;transform:translate(-50%,-50%);background:#1119;opacity:0;pointer-events:none;z-index:1; }
+    .board.gomoku:not(.spectating) .target:active { background:#c58b442b; }
+    #board.gomoku ~ .grave { display:none; }
+    .board-side:has(.board.gomoku) .status { max-width:540px; }
+    @media(max-width:460px) { .board.gomoku .target { width:6.2%;height:6.2%; } .game-option { padding:12px 5px; } }
     .target { position:absolute; width:10.7%; height:9.6%; transform:translate(-50%,-50%); z-index:1; cursor:pointer; }
     .piece { position:absolute; width:9.4%; height:8.5%; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; border-radius:50%; background:radial-gradient(circle at 33% 29%,#fff9e7,#d9ad77); color:#25211d; font-weight:900; font-size:clamp(16px,calc(var(--unit) * .48),24px); box-shadow:1px 3px 5px #0007,inset 0 0 0 2px #cca06a; z-index:2; cursor:pointer; user-select:none; }
     .piece.red { color:var(--red); border:1px solid var(--red); } .piece.black { color:#25272a; border:1px solid #25272a; }
@@ -150,13 +172,17 @@
 </head>
 <body>
 <div class="shell">
-  <h1>♟️ 同學象棋室</h1>
-  <p class="subtitle">V2.2 · 好友對弈 · 同學觀戰 · 輪流挑戰</p>
+  <h1>♟️ 同學棋藝室</h1>
+  <p class="subtitle">V2.3 · 象棋 × 五子棋 · 好友對弈 · 同學觀戰</p>
   <div id="welcome" class="welcome card">
-    <h2 id="welcomeTitle">一起下象棋吧！</h2>
+    <h2 id="welcomeTitle">一起下棋吧！</h2>
     <p class="hint" id="welcomeHelp">建立房間後，分享連結或 QR Code 邀請同學。</p>
     <label for="nickname">你的暱稱（不必填真實姓名）</label>
     <input id="nickname" type="text" maxlength="14" placeholder="例如：阿哲" autocomplete="nickname">
+    <div id="gameChoice" class="game-choice" role="group" aria-label="建立房間的遊戲類型">
+      <button class="game-option selected" data-game="xiangqi" type="button" aria-pressed="true"><span class="game-icon">帥</span><strong>象棋</strong><small>楚河漢界 · 紅方先手</small></button>
+      <button class="game-option" data-game="gomoku" type="button" aria-pressed="false"><span class="game-icon stone-icon">●</span><strong>五子棋</strong><small>15×15 · 黑棋先手</small></button>
+    </div>
     <div id="joinFields" class="hide">
       <label for="joinCode">房間代碼</label>
       <input id="joinCode" type="text" maxlength="12" placeholder="輸入朋友給的房號" autocomplete="off">
@@ -168,7 +194,7 @@
   <main id="app" class="hide">
     <div class="card">
       <div class="room-top">
-        <div><div id="roomTitle" class="room-title">象棋房</div><div id="roomCode" class="room-code"></div></div>
+        <div><div id="roomTitle" class="room-title">棋藝房</div><div id="roomCode" class="room-code"></div></div>
         <div class="room-actions"><button id="copyLink" class="primary">📋 複製邀請連結</button><button id="showQR">▦ 分享 QR Code</button><button id="leaveRoom" class="subtle">🚪 離開房間</button></div>
       </div>
       <div class="players"><div id="redPlayer" class="player"></div><div id="blackPlayer" class="player"></div></div>
@@ -190,7 +216,7 @@
         <div id="voiceStatus" role="status"></div>
         <div id="topTaken" class="grave"></div>
         <div class="board" id="board">
-          <svg viewBox="0 0 450 500" preserveAspectRatio="none" aria-label="象棋棋盤">
+          <svg id="xiangqiGrid" viewBox="0 0 450 500" preserveAspectRatio="none" aria-label="象棋棋盤">
             <rect x="25" y="25" width="400" height="450" fill="none" stroke="#5c3a1e" stroke-width="2"/>
             <g stroke="#5c3a1e" stroke-width="1.2">
               <path d="M25 75H425 M25 125H425 M25 175H425 M25 225H425 M25 275H425 M25 325H425 M25 375H425 M25 425H425"/>
@@ -201,6 +227,7 @@
             <text x="125" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">楚 河</text>
             <text x="325" y="258" font-size="22" font-family="serif" text-anchor="middle" fill="#6a4c28" font-weight="bold">漢 界</text>
           </svg>
+          <svg id="gomokuGrid" class="hide" viewBox="0 0 450 450" preserveAspectRatio="none" aria-label="五子棋 15 乘 15 棋盤"></svg>
           <div id="layer"></div>
           <div id="quickBubble" class="quick-bubble hide" aria-live="polite"></div>
         </div>
@@ -219,23 +246,25 @@
         </section>
         <section id="hostPanel" class="card hide">
           <h3>👑 房主管理</h3><p id="hostInfo" class="hint"></p>
+          <label for="hostNextGame" class="hint">下一局遊戲：</label>
+          <select id="hostNextGame" style="width:100%;margin:6px 0 9px"><option value="xiangqi">♟ 象棋</option><option value="gomoku">⚫ 五子棋</option></select>
           <label for="hostColor" class="hint">房主下一局執棋：</label>
           <select id="hostColor" style="width:100%;margin:6px 0 9px"><option value="red">紅方（先手）</option><option value="black">黑方（後手）</option></select>
-          <label for="rulesMode" class="hint">下一局棋規：</label>
+          <div id="rulesModeWrap"><label for="rulesMode" class="hint">下一局棋規：</label>
           <select id="rulesMode" style="width:100%;margin:6px 0 9px">
             <option value="relaxed">自由對戰（允許自陷被將）</option>
             <option value="strict">標準對戰（必須應將）</option>
-          </select>
+          </select></div>
           <div id="candidateList"></div>
           <button id="abandonBtn" class="danger hide" style="width:100%;margin-top:10px">結束離線對局</button>
         </section>
         <section class="card"><h3>📖 小提醒</h3>
-          <p class="hint">每局紅棋先走。自由對戰可冒險不應將，被吃掉將帥就輸；標準對戰則須應將。只有兩位玩家能走棋，悔棋、提和都須對手同意。</p>
+          <p class="hint" id="gameHelp">象棋紅棋先走；五子棋黑棋先走，五子以上連線即勝（無禁手）。只有對弈雙方能走棋，悔棋與提和須對手同意。</p>
           <p id="roomNotice" class="hint"></p>
         </section>
       </div>
     </div>
-    <p class="footer">熟人好友約戰用，請以暱稱參與；房間連結不要公開張貼。</p>
+    <p class="footer">同學好友約戰用 · 只需暱稱 · 房間連結請勿公開張貼</p>
   </main>
 </div>
 
@@ -274,10 +303,36 @@
   ];
   const names = { b_c:'車',b_m:'馬',b_x:'象',b_s:'士',b_j:'將',b_p:'砲',b_z:'卒',r_c:'俥',r_m:'傌',r_x:'相',r_s:'仕',r_j:'帥',r_p:'炮',r_b:'兵' };
   const other = s => s === 'red' ? 'black' : 'red';
-  const sideName = s => s === 'red' ? '紅方' : '黑方';
+  const gameTypeOf = (r=room) => (r?.meta?.gameType==='gomoku'?'gomoku':'xiangqi');
+  const selectedGameType = () => $('gameChoice').querySelector('.game-option.selected')?.dataset.game||'xiangqi';
+  const sideName = (s,type=gameTypeOf()) => type==='gomoku'?(s==='black'?'黑棋':'白棋'):(s==='red'?'紅方':'黑方');
+  const gameTitle = type => type==='gomoku'?'五子棋':'象棋';
+  const stoneOf = side => side==='black'?'b':'w';
+  const emptyGomokuBoard=()=>Array.from({length:15},()=>Array(15).fill(''));
+  function gomokuWinLine(board,r,c,stone) {
+    for(const [dr,dc] of [[1,0],[0,1],[1,1],[1,-1]]) {
+      const line=[[r,c]];
+      for(const sign of [-1,1]) {
+        let y=r+dr*sign,x=c+dc*sign;
+        while(y>=0&&y<15&&x>=0&&x<15&&board[y][x]===stone) {
+          if(sign===-1)line.unshift([y,x]);else line.push([y,x]);
+          y+=dr*sign;x+=dc*sign;
+        }
+      }
+      if(line.length>=5)return line;
+    }
+    return null;
+  }
+  function paintGameChoice(type) {
+    for(const btn of $('gameChoice').querySelectorAll('button')) {
+      const chosen=btn.dataset.game===type;
+      btn.classList.toggle('selected',chosen);btn.setAttribute('aria-pressed',String(chosen));
+    }
+  }
+  for(const btn of $('gameChoice').querySelectorAll('button'))btn.onclick=()=>paintGameChoice(btn.dataset.game);
   const pieceSide = p => p && p[0] === 'r' ? 'red' : 'black';
   const copyBoard = board => board.map(row => [...row]);
-  const newGame = (round=0,status='waiting',rulesMode='relaxed') => ({ board:initialBoard(),turn:'red',status,rulesMode,round,version:0,moveNo:0,winner:null,reason:'',lastMove:null,history:[],captured:{red:[],black:[]},undoChances:{red:3,black:3},positionHistory:[] });
+  const newGame = (round=0,status='waiting',rulesMode='relaxed',gameType='xiangqi') => ({ board:gameType==='gomoku'?emptyGomokuBoard():initialBoard(),turn:gameType==='gomoku'?'black':'red',status,rulesMode,round,version:0,moveNo:0,winner:null,reason:'',lastMove:null,winningLine:null,history:[],captured:{red:[],black:[]},undoChances:{red:3,black:3},positionHistory:[] });
   const bounds = (r,c) => r>=0 && r<10 && c>=0 && c<9;
 
   // 不考慮自陷被將的棋子幾何走法。將軍偵測也使用此函式，避免規則互相遞迴。
@@ -368,6 +423,7 @@
   let voiceActivation='',voiceGeneration=0,voiceSide='',voiceRound=-1,voiceRoomId='',voicePair='';
   let voiceActiveRef=null,voiceDisconnectJob=null,voiceActiveUnsub=null;
   let quickSeenInitialized=false,lastQuickId='',quickTimer=null,lastQuickSent=0;
+  let lastTypeRound='';
   const quickPhrases=[
     ['slow','⏳ 想太久啦～'],['hurry','⚡ 快點啦！'],
     ['wow','🔥 太猛了！'],['surprise','😲 沒想到吧！'],
@@ -379,7 +435,8 @@
   const urlCode=(params.get('room')||'').trim().toUpperCase();
   if(urlCode && /^[A-Z0-9]{5,12}$/.test(urlCode)) {
     $('joinFields').classList.remove('hide'); $('joinCode').value=urlCode;
-    $('welcomeTitle').textContent='加入好友的象棋房';
+    $('gameChoice').classList.add('hide');
+    $('welcomeTitle').textContent='加入好友的棋藝房';
     $('welcomeHelp').textContent='輸入暱稱後即可加入；房間若已有兩人，會自動成為觀戰者。';
   }
   try { $('nickname').value=localStorage.getItem('xiangqi_nickname')||''; } catch(e) {}
@@ -408,11 +465,11 @@
     if(joining||!uid||!rememberNick())return;setBusy(true);setWelcomeStatus('正在建立房間…');
     try {
       for(let attempt=0;attempt<5;attempt++) {
-        const id=randomCode(),rref=ref(db,`chessV2/${id}`);
+        const id=randomCode(),rref=ref(db,`chessV2/${id}`),type=selectedGameType();
         const created=await runTransaction(rref,current=>current?undefined:{
-          meta:{hostUid:uid,createdAt:Date.now(),closed:false},
+          meta:{hostUid:uid,createdAt:Date.now(),closed:false,gameType:type},
           members:{[uid]:{name:nickname,joinedAt:Date.now()}},
-          seats:{red:uid,black:''},game:newGame()
+          seats:type==='gomoku'?{red:'',black:uid}:{red:uid,black:''},game:newGame(0,'waiting','relaxed',type)
         },{applyLocally:false});
         if(created.committed) {await enterRoom(id);return;}
       }
@@ -422,7 +479,7 @@
   $('joinRoom').onclick=async()=>{
     if(joining||!uid||!rememberNick())return;
     if($('joinFields').classList.contains('hide')) {
-      $('joinFields').classList.remove('hide');$('joinCode').focus();$('welcomeHelp').textContent='請輸入朋友分享的房號，或直接使用邀請連結。';return;
+      $('joinFields').classList.remove('hide');$('gameChoice').classList.add('hide');$('joinCode').focus();$('welcomeHelp').textContent='請輸入朋友分享的房號，或直接使用邀請連結。';return;
     }
     const id=$('joinCode').value.trim().toUpperCase();
     if(!/^[A-Z0-9]{5,12}$/.test(id))return setWelcomeStatus('房號請輸入 5～12 位英數字。',true);
@@ -440,6 +497,7 @@
       name:nickname,joinedAt:snapshot.val().members?.[uid]?.joinedAt||Date.now()
     });
     roomId=id;roomRef=candidateRef;gameRef=ref(db,`chessV2/${id}/game`);
+    lastTypeRound='';
     quickSeenInitialized=false;lastQuickId='';hideQuickBubble();
     sessionId=randomCode();
     const presenceRef=ref(db,`chessV2/${id}/presence/${uid}/${sessionId}`);
@@ -459,7 +517,7 @@
       checkQuickMessage(room.voice?.quick);
       if(room.invite?.status==='accepted'&&isHost()&&!finalizing)finalizeInvite();
       if(room.invite?.status==='declined'&&isHost())clearDeclinedInvite();
-      if(previous?.game?.round!==room.game?.round) {picked=null;possibles=[];flipped=newSide==='black';$('resultModal').classList.add('hide');}
+      if(previous?.game?.round!==room.game?.round) {picked=null;possibles=[];flipped=gameTypeOf()==='gomoku'?false:newSide==='black';$('resultModal').classList.add('hide');}
       if(previous?.game?.status!=='finished'&&room.game?.status==='finished')showResult();
       // 語音 ICE 訊號可能在一秒內寫入多次；不要因此重畫整個棋盤。
       const before=previous&&JSON.stringify({g:previous.game,s:previous.seats,m:previous.members,p:previous.presence,
@@ -469,7 +527,7 @@
       if(before!==after) {
         if(previous?.game?.status==='playing'&&room.game?.moveNo>previous.game.moveNo) {
           const g=room.game;
-          if(g.status==='playing')playSound(inCheck(g.turn,g.board)?'check':g.lastMove?.capture?'eat':'move');
+          if(g.status==='playing')playSound(gameTypeOf()==='gomoku'?'move':inCheck(g.turn,g.board)?'check':g.lastMove?.capture?'eat':'move');
         }
         renderAll();
       }
@@ -495,7 +553,9 @@
     $('app').classList.add('hide');$('welcome').classList.remove('hide');
     $('qrModal').classList.add('hide');$('resultModal').classList.add('hide');
     $('joinFields').classList.add('hide');$('joinCode').value='';
-    $('welcomeTitle').textContent='一起下象棋吧！';
+    lastTypeRound='';
+    $('welcomeTitle').textContent='一起下棋吧！';
+    $('gameChoice').classList.remove('hide');
     $('welcomeHelp').textContent='已離開原房間。可以重新建立房間，或輸入房號加入其他同學。';
     setWelcomeStatus('已離開房間，原棋局不會被刪除。');setBusy(false);
     try {
@@ -522,17 +582,24 @@
   function renderAll() {
     if(!room||!room.game)return;
     for(const player of [room.seats?.red,room.seats?.black])if(player)offlineDuration(player);
-    $('roomTitle').textContent=(myName(room.meta.hostUid)||'好友')+'的象棋室';
-    $('roomCode').textContent='房號：'+roomId+(isHost()?'  👑 你是房主':'')+'　｜　'+(room.game.rulesMode==='relaxed'?'自由對戰':'標準對戰');
+    const type=gameTypeOf();
+    $('roomTitle').textContent=(myName(room.meta.hostUid)||'好友')+'的'+gameTitle(type)+'室';
+    $('roomCode').textContent='房號：'+roomId+(isHost()?'  👑 你是房主':'')+'　｜　'+(type==='gomoku'?'五子棋 · 無禁手':room.game.rulesMode==='relaxed'?'象棋 · 自由對戰':'象棋 · 標準對戰');
+    const roundKey=room.game.round+'_'+type;
+    if(roundKey!==lastTypeRound){lastTypeRound=roundKey;$('hostNextGame').value=type;updateHostGameOptions();}
+    $('gameHelp').textContent=type==='gomoku'?'五子棋：15×15、黑棋先手，橫直斜連成五子或以上即獲勝，無禁手；滿盤未勝為和棋。悔棋與提和需對手同意。':'象棋：紅棋先走。自由對戰可冒險不應將，被吃掉將帥就輸；標準對戰必須應將。悔棋與提和需對手同意。';
+    $('redPlayer').style.order=type==='gomoku'?'1':'0';
+    $('blackPlayer').style.order=type==='gomoku'?'0':'1';
     renderSeat('redPlayer','red');renderSeat('blackPlayer','black');
     renderBoard();renderControls();renderMembers();renderRequests();
   }
   function renderSeat(id,side) {
     const box=$(id),idOfPlayer=room.seats?.[side];box.replaceChildren();
     const head=el('div','phead'),name=el('strong','',idOfPlayer?myName(idOfPlayer):'等待挑戰者');
-    const badge=el('span','pill '+side,sideName(side));head.append(name,badge);box.append(head);
+    const type=gameTypeOf();
+    const badge=el('span','pill '+(type==='gomoku'?(side==='red'?'white':'stone-black'):side),sideName(side));head.append(name,badge);box.append(head);
     box.classList.toggle('turn-active',room.game.status==='playing'&&room.game.turn===side);
-    box.classList.toggle('turn-red',side==='red');box.classList.toggle('turn-black',side==='black');
+    box.classList.toggle('turn-red',side==='red'&&type==='xiangqi');box.classList.toggle('turn-black',side==='black');
     const line=el('small','',idOfPlayer?(online(idOfPlayer)?'🟢 在線':'⚪ 暫時離線')+'　'+(idOfPlayer===room.meta.hostUid?'👑 房主':''):'尚無對手');
     box.append(line);
   }
@@ -540,8 +607,33 @@
     const rr=flipped?9-r:r,cc=flipped?8-c:c;
     return {left:(25+cc*50)/450*100+'%',top:(25+rr*50)/500*100+'%'};
   }
-  function position(node,r,c) {const p=xy(r,c);node.style.left=p.left;node.style.top=p.top;}
+  function gomokuXY(r,c){const rr=flipped?14-r:r,cc=flipped?14-c:c;
+    return {left:(25+cc*400/14)/450*100+'%',top:(25+rr*400/14)/450*100+'%'};
+  }
+  function position(node,r,c) {const p=gameTypeOf()==='gomoku'?gomokuXY(r,c):xy(r,c);node.style.left=p.left;node.style.top=p.top;}
+  const svgNS='http://www.w3.org/2000/svg';
+  function initGomokuGrid(){
+    const svg=$('gomokuGrid');
+    const draw=(tag,attrs)=>{const n=document.createElementNS(svgNS,tag);for(const [key,value] of Object.entries(attrs))n.setAttribute(key,value);svg.append(n);};
+    for(let n=0;n<15;n++){
+      const x=25+n*400/14;
+      draw('line',{x1:x,y1:25,x2:x,y2:425,stroke:'#604324','stroke-width':n===0||n===14?1.6:1.1});
+      draw('line',{x1:25,y1:x,x2:425,y2:x,stroke:'#604324','stroke-width':n===0||n===14?1.6:1.1});
+    }
+    for(const [r,c] of [[3,3],[3,11],[7,7],[11,3],[11,11]]){
+      draw('circle',{cx:25+c*400/14,cy:25+r*400/14,r:3.3,fill:'#634326'});
+    }
+  }
+  initGomokuGrid();
   function renderBoard() {
+    const isGomoku=gameTypeOf()==='gomoku';
+    $('board').classList.toggle('gomoku',isGomoku);
+    $('board').classList.toggle('spectating',!seatOf());
+    $('xiangqiGrid').classList.toggle('hide',isGomoku);
+    $('gomokuGrid').classList.toggle('hide',!isGomoku);
+    $('topTaken').classList.toggle('hide',isGomoku);
+    $('bottomTaken').classList.toggle('hide',isGomoku);
+    if(isGomoku){renderGomoku();return;}
     const g=room.game,b=g.board,layer=$('layer');layer.replaceChildren();
     const last=g.lastMove?.to;if(last){const n=el('div','last');position(n,...last);layer.append(n);}
     for(let r=0;r<10;r++)for(let c=0;c<9;c++) {
@@ -555,6 +647,45 @@
     }
     renderTaken();
   }
+  function renderGomoku(){
+    const g=room.game,b=g.board,layer=$('layer');layer.replaceChildren();
+    const winners=new Set((g.winningLine||[]).map(([r,c])=>r+','+c));
+    for(let r=0;r<15;r++)for(let c=0;c<15;c++){
+      const stone=b[r]?.[c];
+      if(stone){
+        const newest=g.lastMove?.to?.[0]===r&&g.lastMove.to[1]===c;
+        const n=el('div','g-stone '+(stone==='b'?'black':'white')+(newest?' newest':'')+(winners.has(r+','+c)?' winner':''));
+        position(n,r,c);layer.append(n);
+      }
+      const target=el('div','target');position(target,r,c);
+      target.setAttribute('aria-label',`${r+1} 列 ${c+1} 行`);
+      target.onclick=()=>gomokuClick(r,c);layer.append(target);
+    }
+  }
+  function gomokuClick(r,c){
+    const g=room?.game,side=seatOf();
+    if(!g||gameTypeOf()!=='gomoku'||g.status!=='playing'||g.turn!==side||g.board?.[r]?.[c])return;
+    void submitGomokuMove(r,c,side,g);
+  }
+  async function submitGomokuMove(r,c,side,seen){
+    try{
+      const result=await runTransaction(gameRef,current=>{
+        if(!current||gameTypeOf()!=='gomoku'||current.round!==seen.round||current.version!==seen.version||current.turn!==side||current.status!=='playing'||seatOf()!==side||r<0||r>=15||c<0||c>=15||current.board?.[r]?.[c])return;
+        const board=copyBoard(current.board),stone=stoneOf(side);board[r][c]=stone;
+        const history=[...(current.history||[]),{board:current.board,turn:current.turn,lastMove:current.lastMove||null,winningLine:current.winningLine||null,captured:current.captured||{red:[],black:[]}}].slice(-30);
+        const winningLine=gomokuWinLine(board,r,c,stone);
+        const moveNo=(current.moveNo||0)+1,draw=!winningLine&&moveNo>=225;
+        return {...current,board,history,turn:other(side),lastMove:{from:null,to:[r,c],side,capture:false},winningLine,
+          moveNo,version:current.version+1,status:winningLine||draw?'finished':'playing',winner:winningLine?side:draw?'draw':null,
+          reason:winningLine?'五子連線':draw?'棋盤下滿，平手':''};
+      },{applyLocally:false});
+      if(!result.committed)showToast('其他玩家已經落子，請按照最新盤面操作。');
+      else {
+        if(room.requests?.undo)remove(ref(db,`chessV2/${roomId}/requests/undo`)).catch(()=>{});
+        if(room.requests?.draw)remove(ref(db,`chessV2/${roomId}/requests/draw`)).catch(()=>{});
+      }
+    }catch(e){showToast(friendlyError(e));}
+  }
   function renderTaken() {
     const captured=room.game.captured||{},mine=flipped?'black':'red';
     const put=(id,side,label)=>{
@@ -566,15 +697,17 @@
   function renderControls() {
     const g=room.game,side=seatOf(),playing=g.status==='playing';
     const who=sideName(g.turn),currentName=myName(room.seats?.[g.turn]);
-    const status=$('statusBar');status.classList.toggle('turn-red',playing&&g.turn==='red');
+    const type=gameTypeOf();
+    const status=$('statusBar');status.classList.toggle('turn-red',playing&&g.turn==='red'&&type==='xiangqi');
+    status.classList.toggle('turn-white',playing&&g.turn==='red'&&type==='gomoku');
     status.classList.toggle('turn-black',playing&&g.turn==='black');
     status.classList.toggle('turn-mine',playing&&side===g.turn);
     status.replaceChildren();
-    if(g.status==='waiting')status.textContent='等待房主邀請對手開始第一局';
+    if(g.status==='waiting')status.textContent='等待房主邀請對手開始'+gameTitle(type); 
     else if(g.status==='finished')status.textContent=g.winner==='draw'?'🤝 和棋 · '+g.reason:'🏆 '+myName(room.seats?.[g.winner])+'獲勝 · '+g.reason;
     else {
-      status.append(el('span','',g.turn==='red'?'🔴 現在是紅方下':'⚫ 現在是黑方下'));
-      const sub=(inCheck(g.turn,g.board)?'⚠️ 將軍！'+(g.rulesMode==='relaxed'?' 可選擇不應將 · ':' · '):'')+
+      status.append(el('span','',type==='gomoku'?(g.turn==='black'?'⚫ 現在是黑棋下':'⚪ 現在是白棋下'):(g.turn==='red'?'🔴 現在是紅方下':'⚫ 現在是黑方下')));
+      const sub=(type==='xiangqi'&&inCheck(g.turn,g.board)?'⚠️ 將軍！'+(g.rulesMode==='relaxed'?' 可選擇不應將 · ':' · '):'')+
         currentName+(side===g.turn?'（換你了！）':side?'（等待對方）':'（觀戰中）');
       status.append(el('span','status-sub',sub));
     }
@@ -608,6 +741,7 @@
     if(!isHost())return;
     const canInvite=room.game.status!=='playing';
     $('hostColor').disabled=!canInvite;
+    $('hostNextGame').disabled=!canInvite;
     $('rulesMode').disabled=!canInvite;
     $('hostInfo').textContent=canInvite?'選一位同學進行下一局，對方同意後才會開局。':'本局進行中，結束後才能安排下局。';
     const target=$('candidateList');target.replaceChildren();
@@ -626,7 +760,7 @@
     if(offer?.status==='pending') {
       invite.classList.remove('hide');
       if(offer.to===uid) {
-        invite.append(el('strong','','👑 '+myName(offer.from)+' 邀請你執'+sideName(other(offer.hostSide))+'（'+(offer.rulesMode==='strict'?'標準對戰':'自由對戰')+'），要開始對局嗎？'));
+        invite.append(el('strong','','👑 '+myName(offer.from)+' 邀請你玩'+gameTitle(offer.gameType||gameTypeOf())+'，執'+sideName(other(offer.hostSide),offer.gameType||gameTypeOf())+'（'+((offer.gameType||gameTypeOf())==='gomoku'?'15×15 無禁手':offer.rulesMode==='strict'?'標準對戰':'自由對戰')+'），要開始對局嗎？'));
         const actions=el('div','inline');
         const yes=el('button','primary','接受挑戰'),no=el('button','subtle','婉拒');
         yes.onclick=()=>respondInvite('accepted');no.onclick=()=>respondInvite('declined');
@@ -685,10 +819,19 @@
     }catch(e){showToast(friendlyError(e));}
   }
 
+  function updateHostGameOptions(){
+    const kind=$('hostNextGame').value;
+    $('hostColor').options[0].text=kind==='gomoku'?'白棋（後手）':'紅方（先手）';
+    $('hostColor').options[1].text=kind==='gomoku'?'黑棋（先手）':'黑方（後手）';
+    $('rulesModeWrap').classList.toggle('hide',kind==='gomoku');
+    // 五子棋建立或重新選擇時，預設讓房主執黑棋。
+    if(kind==='gomoku'&&$('hostColor').value==='red')$('hostColor').value='black';
+  }
+  $('hostNextGame').onchange=()=>{if($('hostNextGame').value==='xiangqi')$('hostColor').value='red';updateHostGameOptions();};
   async function invitePlayer(targetId) {
     if(!isHost()||room.game.status==='playing'||!online(targetId)||targetId===uid)return;
     if(room.invite?.status==='pending')return showToast('請先取消上一個邀請。');
-    try {await set(ref(db,`chessV2/${roomId}/invite`),{from:uid,to:targetId,hostSide:$('hostColor').value,rulesMode:$('rulesMode').value,status:'pending',sentAt:Date.now()});}
+    try {await set(ref(db,`chessV2/${roomId}/invite`),{from:uid,to:targetId,hostSide:$('hostColor').value,gameType:$('hostNextGame').value,rulesMode:$('rulesMode').value,status:'pending',sentAt:Date.now()});}
     catch(e){showToast(friendlyError(e));}
   }
   async function respondInvite(status) {
@@ -712,7 +855,8 @@
         const invite=r?.invite;
         if(!r||r.meta?.hostUid!==uid||invite?.status!=='accepted'||r.game?.status==='playing'||!r.members?.[invite.to])return;
         r.seats=invite.hostSide==='red'?{red:uid,black:invite.to}:{red:invite.to,black:uid};
-        r.game=newGame((r.game?.round||0)+1,'playing',invite.rulesMode==='strict'?'strict':'relaxed');
+        r.meta.gameType=invite.gameType==='gomoku'?'gomoku':'xiangqi';
+        r.game=newGame((r.game?.round||0)+1,'playing',invite.rulesMode==='strict'?'strict':'relaxed',r.meta.gameType);
         delete r.invite;delete r.requests;
         return r;
       },{applyLocally:false});
@@ -746,7 +890,7 @@
           const history=[...(current.history||[])],prev=history.pop();
           if(!prev||current.lastMove?.side!==request.side)return;
           const undoChances={...current.undoChances,[request.side]:(current.undoChances?.[request.side]??3)-1};
-          return {...current,board:prev.board,turn:prev.turn,lastMove:prev.lastMove||null,captured:prev.captured||{red:[],black:[]},
+          return {...current,board:prev.board,turn:prev.turn,lastMove:prev.lastMove||null,winningLine:prev.winningLine||null,captured:prev.captured||{red:[],black:[]},
             positionHistory:prev.positionHistory||[],history,undoChances,moveNo:current.moveNo-1,version:current.version+1};
         },{applyLocally:false});
         if(!result.committed)showToast('申請已過期，盤面可能已變動。');
@@ -790,7 +934,7 @@
     const canvas=$('qrBox').querySelector('canvas'),img=$('qrBox').querySelector('img');
     const dataUrl=canvas?.toDataURL('image/png')||img?.src;
     if(!dataUrl)return showToast('QR Code 尚未準備好，請稍後重試。');
-    const link=document.createElement('a');link.href=dataUrl;link.download=`xiangqi-room-${roomId}.png`;
+    const link=document.createElement('a');link.href=dataUrl;link.download=`board-game-${roomId}.png`;
     document.body.append(link);link.click();link.remove();
   };
   $('showQR').onclick=()=>{
